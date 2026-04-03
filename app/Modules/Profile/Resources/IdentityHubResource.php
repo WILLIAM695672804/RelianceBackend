@@ -10,7 +10,7 @@ class IdentityHubResource extends JsonResource
     {
         // Extract meta data securely
         $meta = $this->meta ?? [];
-        $languages = $meta['languages'] ?? [];
+        $competences = $meta['competences'] ?? [];
         $bio = $meta['bio'] ?? '';
         
         $location = $this->locations()->where('is_default', true)->first();
@@ -35,12 +35,12 @@ class IdentityHubResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'phone' => $this->phone,
-            'avatar_url' => $this->avatar_url,
+            'avatar_url' => $this->avatar_url ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->avatar_url) : null,
             'verified' => (bool) $this->verified,
             'rating' => (float) $this->rating,
             'num_reviews' => (int) $this->num_reviews,
             'bio' => $bio,
-            'languages' => $languages,
+            'competences' => $competences,
             'kyc_approved' => $this->hasApprovedKyc(), // Méthode du Model
             
             'service_perimeter' => [

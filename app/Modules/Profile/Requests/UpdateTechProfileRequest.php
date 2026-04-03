@@ -14,10 +14,11 @@ class UpdateTechProfileRequest extends FormRequest
     public function rules()
     {
         return [
+            'name' => 'nullable|string|max:100',
             'phone' => 'nullable|string|max:20',
             'bio' => 'nullable|string|max:1000',
-            'languages' => 'nullable|array',
-            'languages.*' => 'string|max:50',
+            'competences' => 'nullable|array',
+            'competences.*' => 'string|max:50',
             'avatar' => 'nullable|image|mimes:jpg,jpeg,png|max:2048'
         ];
     }

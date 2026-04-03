@@ -30,8 +30,24 @@ class TechnicianProfileController extends Controller
         
         $validated = $request->validated();
         
+        if (isset($validated['name'])) {
+            $user->name = $validated['name'];
+        }
+
         if (isset($validated['phone'])) {
             $user->phone = $validated['phone'];
+        }
+
+        // Handle Avatar Upload
+        if ($request->hasFile('avatar')) {
+            $path = $request->file('avatar')->store('avatars', 'public');
+            
+            // Delete old avatar if exists
+            if ($user->avatar_url && !str_starts_with($user->avatar_url, 'http')) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($user->avatar_url);
+            }
+            
+            $user->avatar_url = $path; // Or full URL via Storage::url($path)
         }
 
         // Generate JSON meta for extended fields
@@ -39,8 +55,8 @@ class TechnicianProfileController extends Controller
         if (isset($validated['bio'])) {
             $meta['bio'] = $validated['bio'];
         }
-        if (isset($validated['languages'])) {
-            $meta['languages'] = $validated['languages'];
+        if (isset($validated['competences'])) {
+            $meta['competences'] = $validated['competences'];
         }
         $user->meta = $meta;
 

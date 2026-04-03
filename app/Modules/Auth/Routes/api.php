@@ -37,6 +37,7 @@ Route::prefix('auth')->group(function () {
         // Profile Routes
         Route::prefix('profile')->group(function () {
             Route::put('/', [ProfileController::class, 'update']);
+            Route::post('/avatar', [ProfileController::class, 'updateAvatar']);
             Route::put('/password', [ProfileController::class, 'changePassword']);
         });
 

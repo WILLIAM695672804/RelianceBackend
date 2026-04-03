@@ -18,4 +18,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/skills', [TechnicianSkillController::class, 'store']);
         Route::delete('/skills/{id}', [TechnicianSkillController::class, 'destroy']);
     });
+
+    // Client/General Location Management
+    Route::prefix('locations')->group(function () {
+        Route::get('/', [\App\Modules\Profile\Controllers\UserLocationController::class, 'index']);
+        Route::post('/', [\App\Modules\Profile\Controllers\UserLocationController::class, 'store']);
+        Route::delete('/{id}', [\App\Modules\Profile\Controllers\UserLocationController::class, 'destroy']);
+        Route::patch('/{id}/default', [\App\Modules\Profile\Controllers\UserLocationController::class, 'setDefault']);
+    });
 });

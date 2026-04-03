@@ -40,6 +40,7 @@ class User extends Authenticatable
         'num_reviews',
         'verified',
         'last_login',
+        'meta',
     ];
 
     protected $hidden = [
@@ -54,6 +55,7 @@ class User extends Authenticatable
         'verified' => 'boolean',
         'last_login' => 'datetime',
         'rating' => 'decimal:2',
+        'meta' => 'array',
     ];
 
     protected static function booted()
