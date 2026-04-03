@@ -2,6 +2,9 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Modules\Auth\Controllers\AuthController;
+use App\Modules\Auth\Controllers\TwoFactorController;
+use App\Modules\Auth\Controllers\ProfileController;
+use App\Modules\Auth\Controllers\RoleManagementController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 
 Route::prefix('auth')->group(function () {
@@ -12,8 +15,7 @@ Route::prefix('auth')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login', [AuthController::class, 'login'])
-        ->middleware('throttle:login');
+    Route::post('/login', [AuthController::class, 'login']);
 
     /*
     |--------------------------------------------------------------------------
@@ -22,12 +24,24 @@ Route::prefix('auth')->group(function () {
     */
     Route::middleware('auth:sanctum')->group(function () {
 
-        // Email vérifié
-        Route::middleware('verified')->group(function () {
+        // Route protégée (email verification désactivée temporairement)
             Route::get('/me', [AuthController::class, 'me']);
+
+        // 2FA Routes
+        Route::prefix('2fa')->group(function () {
+            Route::post('/generate', [TwoFactorController::class, 'generateSecret']);
+            Route::post('/enable', [TwoFactorController::class, 'enable']);
+            Route::post('/disable', [TwoFactorController::class, 'disable']);
+        });
+
+        // Profile Routes
+        Route::prefix('profile')->group(function () {
+            Route::put('/', [ProfileController::class, 'update']);
+            Route::put('/password', [ProfileController::class, 'changePassword']);
         });
 
         Route::post('/logout', [AuthController::class, 'logout']);
+        Route::post('/refresh', [AuthController::class, 'refresh']);
 
         /*
         |--------------------------------------------------------------------------
@@ -60,6 +74,8 @@ Route::prefix('auth')->group(function () {
             Route::get('/admin/dashboard', function () {
                 return 'Admin OK';
             });
+            Route::post('/admin/users/{user}/roles', [RoleManagementController::class, 'assignRole']);
+            Route::delete('/admin/users/{user}/roles/{role}', [RoleManagementController::class, 'revokeRole']);
         });
 
         /*
