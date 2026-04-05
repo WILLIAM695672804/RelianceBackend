@@ -35,6 +35,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'update_intervention_status',
             'receive_matching_alerts',
             'manage_proposals',
+            'respond_to_proposal',
 
             // Agence
             'manage_technicians',
@@ -70,6 +71,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'update_intervention_status',
             'receive_matching_alerts',
             'manage_proposals',
+            'respond_to_proposal',
         ]);
 
         $agence->givePermissionTo([

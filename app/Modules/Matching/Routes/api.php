@@ -3,6 +3,10 @@
 use Illuminate\Support\Facades\Route;
 use App\Modules\Matching\Controllers\ClientRequestController;
 use App\Modules\Matching\Controllers\ProposalController;
+use App\Modules\Matching\Controllers\SseNotificationController;
+
+// SSE stream — auth handled manually (EventSource can't send headers)
+Route::get('/proposals/stream', [SseNotificationController::class, 'stream']);
 
 Route::middleware('auth:sanctum')->group(function () {
 

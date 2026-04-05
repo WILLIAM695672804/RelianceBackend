@@ -76,9 +76,7 @@ Route::prefix('auth')->group(function () {
         |--------------------------------------------------------------------------
         */
         Route::middleware('role:admin')->group(function () {
-            Route::get('/admin/dashboard', function () {
-                return 'Admin OK';
-            });
+            Route::get('/admin/stats', [\App\Modules\Auth\Controllers\AdminDashboardController::class, 'stats']);
             Route::post('/admin/users/{user}/roles', [RoleManagementController::class, 'assignRole']);
             Route::delete('/admin/users/{user}/roles/{role}', [RoleManagementController::class, 'revokeRole']);
 

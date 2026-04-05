@@ -43,6 +43,36 @@ class KycController extends Controller
             ],
         ]);
     }
+    public function adminIndex(Request $request)
+    {
+        $query = KycDocument::with('user');
+
+        if ($request->has('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->has('type')) {
+            $query->where('type', $request->type);
+        }
+
+        if ($request->has('search')) {
+            $search = $request->search;
+            $query->whereHas('user', function ($q) use ($search) {
+                $q->where('name', 'ilike', "%{$search}%")
+                  ->orWhere('email', 'ilike', "%{$search}%");
+            });
+        }
+
+        $docs = $query->orderBy('created_at', 'desc')->paginate(20);
+
+        $docs->getCollection()->transform(function ($doc) {
+            $doc->url = asset('storage/' . $doc->file_path);
+            return $doc;
+        });
+
+        return response()->json($docs);
+    }
+
     public function validateDocument(Request $request, $id)
     {
         $request->validate([

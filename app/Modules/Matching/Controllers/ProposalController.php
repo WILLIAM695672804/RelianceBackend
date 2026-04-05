@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Matching\Models\ClientRequest;
 use App\Modules\Matching\Models\Proposal;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class ProposalController extends Controller
 {
@@ -34,6 +35,17 @@ class ProposalController extends Controller
 
         $clientRequest->status = 'quoted';
         $clientRequest->save();
+
+        // Push SSE notification to technician via cache
+        Cache::put("sse_proposals_{$request->technician_id}", [
+            'id'         => now()->timestamp,
+            'proposal_id' => $proposal->id,
+            'request_id' => $clientRequest->id,
+            'title'      => $clientRequest->title,
+            'price'      => $proposal->price,
+            'message'    => $proposal->message,
+            'created_at' => now()->toIso8601String(),
+        ], now()->addMinutes(10));
 
         return response()->json([
             'status'  => 'success',

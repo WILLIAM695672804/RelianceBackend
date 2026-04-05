@@ -56,7 +56,6 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('api-token')->plainTextToken;
-        $user->sendEmailVerificationNotification();
 
         // Charger le rôle
         $user->load('roles');

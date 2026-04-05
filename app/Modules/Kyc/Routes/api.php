@@ -10,5 +10,6 @@ Route::get('/kyc/mine', [KycController::class, 'myDocuments']);
 Route::post('/kyc/upload', [KycController::class, 'upload']);
 
 Route::middleware('role:admin')->group(function () {
+    Route::get('/kyc/admin/documents', [KycController::class, 'adminIndex']);
     Route::post('/kyc/{id}/validate', [KycController::class, 'validateDocument']);
 });
