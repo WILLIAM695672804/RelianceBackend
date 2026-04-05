@@ -30,6 +30,12 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
         ]);
         $user->assignRole($roleName);
+        
+        // Techniciens require admin approval before being listed
+        if ($roleName === 'technicien') {
+            $user->verified = false;
+            $user->save();
+        }
 
         // Meta Data Builder
         $meta = [];
@@ -50,7 +56,7 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('api-token')->plainTextToken;
-        // $user->sendEmailVerificationNotification(); // Désactivé temporairement
+        $user->sendEmailVerificationNotification();
 
         // Charger le rôle
         $user->load('roles');

@@ -8,14 +8,24 @@ use Illuminate\Http\Request;
 
 class KycController extends Controller
 {
+    public function myDocuments()
+    {
+        $docs = KycDocument::where('user_id', auth()->id())->get();
+        $docs->transform(function ($doc) {
+            $doc->url = asset('storage/' . $doc->file_path);
+            return $doc;
+        });
+        return response()->json($docs);
+    }
+
     public function upload(Request $request)
     {
         $request->validate([
             'type' => 'required|string',
-            'document' => 'required|file|mimes:jpg,jpeg,png,pdf|max:4096',
+            'document' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
 
-        $path = $request->file('document')->store('kyc');
+        $path = $request->file('document')->store('kyc', 'public');
 
         $doc = KycDocument::create([
             'user_id' => auth()->id(),
@@ -25,7 +35,12 @@ class KycController extends Controller
 
         return response()->json([
             'message' => 'Document KYC soumis',
-            'document' => $doc,
+            'document' => [
+                'id' => $doc->id,
+                'type' => $doc->type,
+                'status' => $doc->status,
+                'url' => asset('storage/' . $doc->file_path)
+            ],
         ]);
     }
     public function validateDocument(Request $request, $id)

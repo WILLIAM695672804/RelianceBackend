@@ -16,7 +16,7 @@ class TechnicianProfileController extends Controller
     public function show(Request $request, $id = null)
     {
         $userId = $id ?? $request->user()->id;
-        $user = User::findOrFail($userId);
+        $user = User::with(['skills', 'locations'])->findOrFail($userId);
         
         return response()->json([
             'status' => 'success',

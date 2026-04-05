@@ -6,6 +6,7 @@ use App\Modules\Profile\Controllers\TechnicianProfileController;
 use App\Modules\Profile\Controllers\TechnicianSkillController;
 
 Route::get('/skills', [SkillController::class, 'index']);
+Route::get('/technicians', [\App\Modules\Profile\Controllers\TechnicianSearchController::class, 'index']);
 Route::get('/technicians/{id}/profile', [TechnicianProfileController::class, 'show']);
 
 Route::middleware('auth:sanctum')->group(function () {

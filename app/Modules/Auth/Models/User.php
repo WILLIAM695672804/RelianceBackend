@@ -8,7 +8,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Support\Str;
-// use Illuminate\Contracts\Auth\MustVerifyEmail; // Désactivé temporairement
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Modules\Kyc\Models\KycDocument;
 // use OwenIt\Auditing\Contracts\Auditable as AuditableContract; // Désactivé temporairement
 // use OwenIt\Auditing\Auditable; // Désactivé temporairement
@@ -18,11 +18,12 @@ use App\Modules\Kyc\Models\KycDocument;
  * @method void sendEmailVerificationNotification()
  */
 
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     use HasApiTokens, Notifiable, SoftDeletes, HasRoles;
 
     protected $table = 'users';
+    protected $guard_name = 'api';
     protected $keyType = 'string';
     public $incrementing = false;
 
@@ -110,5 +111,13 @@ class User extends Authenticatable
     public function schedule()
     {
         return $this->hasOne(\App\Modules\Schedule\Models\Schedule::class);
+    }
+
+    /**
+     * Surcharge de l'envoi de la notification de vérification d'e-mail.
+     */
+    public function sendEmailVerificationNotification()
+    {
+        $this->notify(new \App\Notifications\VerifyEmailNotification());
     }
 }

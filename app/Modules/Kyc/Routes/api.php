@@ -3,12 +3,12 @@
 use Illuminate\Support\Facades\Route;
 use App\Modules\Kyc\Controllers\KycController;
 
-Route::middleware(['auth:sanctum', 'verified'])->group(function () {
+// Ce fichier est inclus dans le groupe 'auth:sanctum' de App/Modules/Auth/Routes/api.php
+// Il n'est donc pas nécessaire de redéfinir le middleware ici pour les routes de base.
 
-    Route::post('/kyc/upload', [KycController::class, 'upload']);
+Route::get('/kyc/mine', [KycController::class, 'myDocuments']);
+Route::post('/kyc/upload', [KycController::class, 'upload']);
 
-    Route::middleware('role:admin')->group(function () {
-        Route::post('/kyc/{id}/validate', [KycController::class, 'validateDocument']);
-    });
-
+Route::middleware('role:admin')->group(function () {
+    Route::post('/kyc/{id}/validate', [KycController::class, 'validateDocument']);
 });

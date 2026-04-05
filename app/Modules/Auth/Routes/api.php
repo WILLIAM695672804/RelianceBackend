@@ -17,6 +17,10 @@ Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
 
+    // Password Reset
+    Route::post('/forgot-password', [\App\Modules\Auth\Controllers\PasswordResetController::class, 'forgotPassword']);
+    Route::post('/reset-password', [\App\Modules\Auth\Controllers\PasswordResetController::class, 'resetPassword']);
+
     /*
     |--------------------------------------------------------------------------
     | Authentifié
@@ -77,6 +81,16 @@ Route::prefix('auth')->group(function () {
             });
             Route::post('/admin/users/{user}/roles', [RoleManagementController::class, 'assignRole']);
             Route::delete('/admin/users/{user}/roles/{role}', [RoleManagementController::class, 'revokeRole']);
+
+            // User management
+            Route::get('/admin/users', [\App\Modules\Auth\Controllers\AdminUserController::class, 'index']);
+            Route::get('/admin/users/{id}', [\App\Modules\Auth\Controllers\AdminUserController::class, 'show']);
+            Route::patch('/admin/users/{id}/toggle-active', [\App\Modules\Auth\Controllers\AdminUserController::class, 'toggleActive']);
+
+            // Technician approval workflow
+            Route::get('/admin/technicians/pending', [\App\Modules\Auth\Controllers\AdminUserController::class, 'pendingTechnicians']);
+            Route::post('/admin/technicians/{id}/approve', [\App\Modules\Auth\Controllers\AdminUserController::class, 'approveTechnician']);
+            Route::post('/admin/technicians/{id}/reject', [\App\Modules\Auth\Controllers\AdminUserController::class, 'rejectTechnician']);
         });
 
         /*
@@ -97,6 +111,14 @@ Route::prefix('auth')->group(function () {
                 'message' => 'Email de vérification renvoyé'
             ]);
         });
+
+        /*
+        |--------------------------------------------------------------------------
+        | KYC (Authenticated)
+        |--------------------------------------------------------------------------
+        */
+        // This includes the routes for viewing/uploading your OWN documents
+        require base_path('app/Modules/Kyc/Routes/api.php');
     });
 
     /*
@@ -104,26 +126,31 @@ Route::prefix('auth')->group(function () {
     | Email verification callback (public)
     |--------------------------------------------------------------------------
     */
-    Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
-        $request->fulfill();
+    Route::get('/email/verify/{id}/{hash}', function (\Illuminate\Http\Request $request, $id, $hash) {
+        $user = \App\Modules\Auth\Models\User::findOrFail($id);
+
+        if (!hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
+            return response()->json(['message' => 'Lien de vérification invalide.'], 403);
+        }
+
+        if ($user->hasVerifiedEmail()) {
+            return response()->json(['message' => 'Email déjà vérifié.']);
+        }
+
+        if ($user->markEmailAsVerified()) {
+            event(new \Illuminate\Auth\Events\Verified($user));
+        }
 
         return response()->json([
             'message' => 'Email vérifié avec succès'
         ]);
-    })->name('verification.verify');
-
-    /*
-    |--------------------------------------------------------------------------
-    | KYC
-    |--------------------------------------------------------------------------
-    */
-    require base_path('app/Modules/Kyc/Routes/api.php');
+    })->name('verification.verify')->middleware('signed');
 
     Route::middleware(['auth:sanctum', 'kyc'])->group(function () {
-        // routes sensibles
+        // routes sensibles dependantes du KYC
     });
     
     Route::middleware(['auth:sanctum', 'active'])->group(function () {
-        // routes sécurisées
+        // routes sécurisées dependantes de l'activation
     });
 });
