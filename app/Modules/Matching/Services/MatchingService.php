@@ -101,6 +101,11 @@ class MatchingService
                     'proficiency' => $sk->pivot->proficiency,
                     'hourly_rate' => $sk->pivot->hourly_rate,
                 ]),
+                'badges'      => $s['technician']->badges->map(fn($b) => [
+                    'code'     => $b->code,
+                    'title'    => $b->title,
+                    'icon_ref' => $b->icon_ref,
+                ]),
             ], $topN),
             'scoring_details' => [
                 'weights'          => $this->weights,
@@ -116,7 +121,7 @@ class MatchingService
         $query = User::role('technicien')
             ->where('verified', true)
             ->where('is_active', true)
-            ->with('skills')
+            ->with(['skills', 'badges'])
             ->whereHas('locations', function ($q) use ($lng, $lat, $radiusMeters) {
                 $q->where('is_default', true)
                   ->whereRaw(

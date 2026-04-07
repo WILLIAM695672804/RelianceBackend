@@ -58,6 +58,29 @@ class IdentityHubResource extends JsonResource
                 'longitude' => $lng,
                 'radius' => $radius,
             ],
+
+            'badges' => $this->badges->map(fn($badge) => [
+                'code'       => $badge->code,
+                'title'      => $badge->title,
+                'icon_ref'   => $badge->icon_ref,
+                'awarded_at' => $badge->pivot->awarded_at,
+            ]),
+
+            'recent_reviews' => $this->reviews()
+                ->with('reviewer:id,name,avatar_url')
+                ->orderBy('created_at', 'desc')
+                ->take(5)
+                ->get()
+                ->map(fn($r) => [
+                    'id'        => $r->id,
+                    'rating'    => $r->rating,
+                    'comment'   => $r->comment,
+                    'reviewer'  => [
+                        'name'       => $r->reviewer->name,
+                        'avatar_url' => $r->reviewer->avatar_url,
+                    ],
+                    'created_at' => $r->created_at->toIso8601String(),
+                ]),
         ];
     }
 }

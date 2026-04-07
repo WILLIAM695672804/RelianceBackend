@@ -118,4 +118,123 @@ class ProposalController extends Controller
             'message' => 'Proposition refusée',
         ]);
     }
+
+    /**
+     * Lightweight notification check — returns cached notification if any.
+     * Used as fallback when SSE is not available (e.g. php artisan serve).
+     */
+    public function checkNotification(Request $request)
+    {
+        $cacheKey = "sse_proposals_{$request->user()->id}";
+        $notification = Cache::get($cacheKey);
+
+        if ($notification) {
+            Cache::forget($cacheKey);
+            return response()->json(['has_new' => true, 'data' => $notification]);
+        }
+
+        return response()->json(['has_new' => false]);
+    }
+
+    /**
+     * Get the active mission for the technician (accepted proposal with request details).
+     */
+    public function activeMission(Request $request)
+    {
+        $proposal = Proposal::where('technician_id', $request->user()->id)
+            ->where('status', 'accepted')
+            ->with(['request.client', 'request.address', 'request.category'])
+            ->orderBy('updated_at', 'desc')
+            ->first();
+
+        if (!$proposal) {
+            return response()->json(['status' => 'success', 'data' => null]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => [
+                'proposal_id'  => $proposal->id,
+                'price'        => $proposal->price,
+                'accepted_at'  => $proposal->updated_at,
+                'request'      => [
+                    'id'          => $proposal->request->id,
+                    'title'       => $proposal->request->title,
+                    'description' => $proposal->request->description,
+                    'status'      => $proposal->request->status,
+                    'photos'      => $proposal->request->photos,
+                    'category'    => $proposal->request->category?->name,
+                ],
+                'client' => [
+                    'id'     => $proposal->request->client->id,
+                    'name'   => $proposal->request->client->name,
+                    'phone'  => $proposal->request->client->phone,
+                    'avatar' => $proposal->request->client->avatar_url,
+                ],
+                'address' => $proposal->request->address ? [
+                    'label'     => $proposal->request->address->label,
+                    'city'      => $proposal->request->address->city,
+                    'address'   => $proposal->request->address->address,
+                    'latitude'  => $proposal->request->address->meta['latitude'] ?? null,
+                    'longitude' => $proposal->request->address->meta['longitude'] ?? null,
+                ] : null,
+            ],
+        ]);
+    }
+
+    /**
+     * Client views the latest active request with assigned technician info.
+     */
+    public function clientActiveMission(Request $request)
+    {
+        $clientRequest = ClientRequest::where('client_id', $request->user()->id)
+            ->whereIn('status', ['quoted', 'assigned'])
+            ->with(['proposals' => function ($q) {
+                $q->whereIn('status', ['pending', 'accepted'])
+                  ->with('technician')
+                  ->orderBy('created_at', 'desc');
+            }, 'address', 'category'])
+            ->orderBy('updated_at', 'desc')
+            ->first();
+
+        if (!$clientRequest) {
+            return response()->json(['status' => 'success', 'data' => null]);
+        }
+
+        $activeProposal = $clientRequest->proposals->first();
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => [
+                'request' => [
+                    'id'          => $clientRequest->id,
+                    'title'       => $clientRequest->title,
+                    'description' => $clientRequest->description,
+                    'status'      => $clientRequest->status,
+                    'category'    => $clientRequest->category?->name,
+                    'created_at'  => $clientRequest->created_at,
+                ],
+                'address' => $clientRequest->address ? [
+                    'label'     => $clientRequest->address->label,
+                    'city'      => $clientRequest->address->city,
+                    'address'   => $clientRequest->address->address,
+                    'latitude'  => $clientRequest->address->meta['latitude'] ?? null,
+                    'longitude' => $clientRequest->address->meta['longitude'] ?? null,
+                ] : null,
+                'proposal' => $activeProposal ? [
+                    'id'     => $activeProposal->id,
+                    'price'  => $activeProposal->price,
+                    'status' => $activeProposal->status,
+                ] : null,
+                'technician' => $activeProposal?->technician ? [
+                    'id'          => $activeProposal->technician->id,
+                    'name'        => $activeProposal->technician->name,
+                    'phone'       => $activeProposal->technician->phone,
+                    'avatar'      => $activeProposal->technician->avatar_url,
+                    'rating'      => $activeProposal->technician->rating,
+                    'num_reviews' => $activeProposal->technician->num_reviews,
+                ] : null,
+            ],
+        ]);
+    }
 }
