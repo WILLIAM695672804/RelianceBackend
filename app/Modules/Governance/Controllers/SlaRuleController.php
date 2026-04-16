@@ -28,7 +28,7 @@ class SlaRuleController extends Controller
     public function store(StoreSlaRuleRequest $request)
     {
         $rule = SlaRule::create($request->validated());
-        return new SlaRuleResource($rule);
+        return (new SlaRuleResource($rule->fresh()))->response()->setStatusCode(201);
     }
 
     public function show(string $id)

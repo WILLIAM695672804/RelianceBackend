@@ -132,7 +132,7 @@ class GovernanceModuleTest extends TestCase
     {
         $this->actingAs($this->admin);
 
-        AuditService::log('manual_action', 'TestObject', 'some-uuid', ['key' => 'value']);
+        AuditService::log('manual_action', 'TestObject', '00000000-0000-0000-0000-000000000001', ['key' => 'value']);
 
         $this->assertDatabaseHas('audit_logs', [
             'actor_id'    => $this->admin->id,
@@ -163,7 +163,7 @@ class GovernanceModuleTest extends TestCase
         AuditLog::create([
             'actor_id'    => $this->admin->id,
             'object_type' => 'Quote',
-            'object_id'   => 'fake-uuid',
+            'object_id'   => '00000000-0000-0000-0000-000000000002',
             'action'      => 'created',
             'details'     => ['test' => true],
         ]);
@@ -202,7 +202,7 @@ class GovernanceModuleTest extends TestCase
                 'event_props' => ['page' => '/dashboard'],
             ]);
 
-        $response->assertStatus(200)
+        $response->assertStatus(201)
             ->assertJsonPath('data.event_name', 'page_view');
     }
 
@@ -231,8 +231,14 @@ class GovernanceModuleTest extends TestCase
 
     public function test_api_requests_are_tracked_by_middleware()
     {
+        $clientRequest = ClientRequest::create([
+            'client_id'   => $this->client->id,
+            'title'       => 'Test middleware tracking',
+            'description' => 'Testing',
+        ]);
+
         $this->withHeader('Authorization', "Bearer {$this->clientToken}")
-            ->getJson('/api/v1/sla-events/request/fake-id');
+            ->getJson("/api/v1/sla-events/request/{$clientRequest->id}");
 
         $this->assertDatabaseHas('analytics_events', [
             'event_name' => 'api_request',
