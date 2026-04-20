@@ -129,6 +129,31 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(\App\Modules\Gamification\Models\ReputationChange::class);
     }
 
+    public function quotes()
+    {
+        return $this->hasMany(\App\Modules\Operations\Models\Quote::class, 'issuer_id');
+    }
+
+    public function invoicesAsClient()
+    {
+        return $this->hasMany(\App\Modules\Operations\Models\Invoice::class, 'client_id');
+    }
+
+    public function invoicesAsIssuer()
+    {
+        return $this->hasMany(\App\Modules\Operations\Models\Invoice::class, 'issuer_id');
+    }
+
+    public function appointments()
+    {
+        return $this->hasMany(\App\Modules\Operations\Models\Appointment::class, 'technician_id');
+    }
+
+    public function technicianJobs()
+    {
+        return $this->hasMany(\App\Modules\Operations\Models\TechnicianJob::class, 'technician_id');
+    }
+
     /**
      * Surcharge de l'envoi de la notification de vérification d'e-mail.
      */

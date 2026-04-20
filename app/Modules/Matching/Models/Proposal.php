@@ -44,4 +44,15 @@ class Proposal extends Model
     {
         return $this->belongsTo(User::class, 'technician_id');
     }
+
+    public function scopeExpired($query)
+    {
+        return $query->where('status', 'pending')
+            ->where('expires_at', '<', now());
+    }
+
+    public function scopePending($query)
+    {
+        return $query->where('status', 'pending');
+    }
 }

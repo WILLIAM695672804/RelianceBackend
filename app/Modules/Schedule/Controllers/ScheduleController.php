@@ -5,6 +5,7 @@ namespace App\Modules\Schedule\Controllers;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Modules\Schedule\Models\Schedule;
+use App\Modules\Operations\Models\Appointment;
 use Illuminate\Support\Facades\Log;
 
 class ScheduleController extends Controller
@@ -32,11 +33,27 @@ class ScheduleController extends Controller
 
             $timeSlots = $schedule->timeSlots()->get();
             $exceptions = $schedule->exceptions()->get();
-            $appointments = []; // Interventions module to be plugged in next phase
+            $appointments = Appointment::where('technician_id', $user->id)
+                ->where('scheduled_start', '>=', now()->startOfWeek())
+                ->where('scheduled_start', '<=', now()->endOfWeek()->addWeek())
+                ->whereIn('status', ['scheduled', 'confirmed', 'in_progress'])
+                ->with('request')
+                ->orderBy('scheduled_start')
+                ->get();
 
-            // Capacity logic (fake calculation based on data for now)
-            $totalPossibleHours = 45; 
-            $bookedHours = count($appointments) * 2; // Assuming 2h per appt
+            // Calcul de capacité basé sur les créneaux et rendez-vous
+            $totalPossibleHours = $timeSlots->sum(function ($slot) {
+                $start = \Carbon\Carbon::parse($slot->start_time);
+                $end = \Carbon\Carbon::parse($slot->end_time);
+                return $start->diffInHours($end);
+            });
+            $totalPossibleHours = $totalPossibleHours ?: 45;
+            $bookedHours = $appointments->sum(function ($appt) {
+                if ($appt->scheduled_end && $appt->scheduled_start) {
+                    return $appt->scheduled_start->diffInHours($appt->scheduled_end);
+                }
+                return 2;
+            });
             $capacityPercent = round(($bookedHours / $totalPossibleHours) * 100);
 
             return response()->json([

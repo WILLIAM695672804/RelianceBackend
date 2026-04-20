@@ -48,9 +48,12 @@ Route::prefix('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/refresh', [AuthController::class, 'refresh']);
 
+        // Role Upgrade — Client → Technicien
+        Route::post('/request-upgrade', [\App\Modules\Auth\Controllers\RoleUpgradeController::class, 'requestUpgrade']);
+
         /*
         |--------------------------------------------------------------------------
-        | Client
+        | Client (techniciens also allowed — §4.1 "Un technicien peut également agir en tant que client")
         |--------------------------------------------------------------------------
         */
         Route::middleware('permission:create_request')->post('/requests', function () {
@@ -89,6 +92,11 @@ Route::prefix('auth')->group(function () {
             Route::get('/admin/technicians/pending', [\App\Modules\Auth\Controllers\AdminUserController::class, 'pendingTechnicians']);
             Route::post('/admin/technicians/{id}/approve', [\App\Modules\Auth\Controllers\AdminUserController::class, 'approveTechnician']);
             Route::post('/admin/technicians/{id}/reject', [\App\Modules\Auth\Controllers\AdminUserController::class, 'rejectTechnician']);
+
+            // Role Upgrade Admin
+            Route::get('/admin/upgrade-requests', [\App\Modules\Auth\Controllers\RoleUpgradeController::class, 'adminIndex']);
+            Route::post('/admin/upgrade-requests/{id}/approve', [\App\Modules\Auth\Controllers\RoleUpgradeController::class, 'approve']);
+            Route::post('/admin/upgrade-requests/{id}/reject', [\App\Modules\Auth\Controllers\RoleUpgradeController::class, 'reject']);
         });
 
         /*

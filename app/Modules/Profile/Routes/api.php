@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use App\Modules\Profile\Controllers\SkillController;
 use App\Modules\Profile\Controllers\TechnicianProfileController;
 use App\Modules\Profile\Controllers\TechnicianSkillController;
+use App\Modules\Profile\Controllers\AgencyController;
+use App\Modules\Profile\Controllers\AgencyMemberController;
 
 Route::get('/skills', [SkillController::class, 'index']);
 Route::get('/technicians', [\App\Modules\Profile\Controllers\TechnicianSearchController::class, 'index']);
@@ -27,4 +29,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/{id}', [\App\Modules\Profile\Controllers\UserLocationController::class, 'destroy']);
         Route::patch('/{id}/default', [\App\Modules\Profile\Controllers\UserLocationController::class, 'setDefault']);
     });
+
+    // ── Agencies ─────────────────────────────────────────────
+    Route::get('agencies', [AgencyController::class, 'index']);
+    Route::post('agencies', [AgencyController::class, 'store']);
+    Route::get('agencies/{id}', [AgencyController::class, 'show']);
+    Route::put('agencies/{id}', [AgencyController::class, 'update']);
+    Route::get('agencies/{id}/members', [AgencyMemberController::class, 'index']);
+    Route::post('agencies/{id}/members', [AgencyMemberController::class, 'store']);
+    Route::delete('agencies/{id}/members/{userId}', [AgencyMemberController::class, 'destroy']);
+    Route::get('my-agency', [AgencyController::class, 'myAgency']);
 });

@@ -7,6 +7,7 @@ use App\Modules\Social\Controllers\LikeController;
 use App\Modules\Social\Controllers\FollowController;
 use App\Modules\Social\Controllers\ConversationController;
 use App\Modules\Social\Controllers\MessageController;
+use App\Modules\Social\Controllers\AdminConversationController;
 
 // ── Routes publiques ────────────────────────────────────────────
 Route::get('/posts/explore', [PostController::class, 'explore']);
@@ -64,5 +65,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/read', [MessageController::class, 'markAsRead']);
         Route::get('/attachments', [MessageController::class, 'attachments']);
         Route::delete('/{messageId}', [MessageController::class, 'destroy']);
+    });
+
+    // ── Admin Conversation Supervision ─────────────────────────
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/admin/conversations', [AdminConversationController::class, 'index']);
+        Route::get('/admin/conversations/search', [AdminConversationController::class, 'search']);
+        Route::get('/admin/conversations/{id}', [AdminConversationController::class, 'show']);
     });
 });

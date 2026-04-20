@@ -5,6 +5,7 @@ use App\Modules\Matching\Controllers\ClientRequestController;
 use App\Modules\Matching\Controllers\ProposalController;
 use App\Modules\Matching\Controllers\SseNotificationController;
 use App\Modules\Matching\Controllers\PositionController;
+use App\Modules\Matching\Controllers\AdminMatchingController;
 
 // SSE stream — auth handled manually (EventSource can't send headers)
 Route::get('/proposals/stream', [SseNotificationController::class, 'stream']);
@@ -35,4 +36,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Live position tracking
     Route::post('/position/update', [PositionController::class, 'update']);
     Route::get('/position/technician', [PositionController::class, 'getTechnicianPosition']);
+
+    // ── Admin Matching Routes ────────────────────────────────
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/admin/requests', [AdminMatchingController::class, 'index']);
+        Route::post('/admin/requests/{id}/assign', [AdminMatchingController::class, 'assign']);
+    });
 });

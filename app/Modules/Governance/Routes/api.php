@@ -5,12 +5,19 @@ use App\Modules\Governance\Controllers\SlaRuleController;
 use App\Modules\Governance\Controllers\SlaEventController;
 use App\Modules\Governance\Controllers\AuditLogController;
 use App\Modules\Governance\Controllers\AnalyticsController;
+use App\Modules\Governance\Controllers\DisputeController;
 
 Route::middleware('auth:sanctum')->group(function () {
 
     // ── SLA Events (authenticated users) ───────────────────
     Route::post('/sla-events', [SlaEventController::class, 'store']);
     Route::get('/sla-events/request/{requestId}', [SlaEventController::class, 'index']);
+
+    // ── Disputes (authenticated users) ─────────────────────
+    Route::post('/disputes', [DisputeController::class, 'store']);
+    Route::get('/disputes', [DisputeController::class, 'index']);
+    Route::get('/disputes/{id}', [DisputeController::class, 'show']);
+    Route::post('/disputes/{id}/message', [DisputeController::class, 'addMessage']);
 
     // ── Admin-only routes ──────────────────────────────────
     Route::middleware('role:admin')->group(function () {
@@ -35,6 +42,10 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/', [AnalyticsController::class, 'index']);
             Route::get('/summary', [AnalyticsController::class, 'summary']);
         });
+
+        // Admin Disputes
+        Route::get('/admin/disputes', [DisputeController::class, 'adminIndex']);
+        Route::post('/admin/disputes/{id}/resolve', [DisputeController::class, 'resolve']);
     });
 
     // Analytics track (authenticated, non-admin)

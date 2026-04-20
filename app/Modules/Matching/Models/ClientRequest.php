@@ -70,4 +70,19 @@ class ClientRequest extends Model
     {
         return $this->hasMany(MatchingLog::class, 'request_id');
     }
+
+    public function quotes()
+    {
+        return $this->hasMany(\App\Modules\Operations\Models\Quote::class, 'request_id');
+    }
+
+    public function appointments()
+    {
+        return $this->hasMany(\App\Modules\Operations\Models\Appointment::class, 'request_id');
+    }
+
+    public function jobs()
+    {
+        return $this->hasMany(\App\Modules\Operations\Models\TechnicianJob::class, 'request_id');
+    }
 }

@@ -28,4 +28,6 @@ Route::prefix('v1')->group(function () {
     require base_path('app/Modules/Operations/Routes/api.php');
     require base_path('app/Modules/Social/Routes/api.php');
     require base_path('app/Modules/Governance/Routes/api.php');
+    require base_path('app/Modules/Finance/Routes/api.php');
+    require base_path('app/Modules/Notification/Routes/api.php');
 });
