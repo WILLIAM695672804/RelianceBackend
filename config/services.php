@@ -31,4 +31,18 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'momo' => [
+        'base_url' => env('MOMO_BASE_URL', 'https://sandbox.momodeveloper.mtn.com'),
+        'api_key' => env('MOMO_API_KEY'),
+        'api_user' => env('MOMO_API_USER'),
+        'subscription_key' => env('MOMO_SUBSCRIPTION_KEY'),
+        'environment' => env('MOMO_ENVIRONMENT', 'sandbox'),
+    ],
+
+    'orange_money' => [
+        'base_url' => env('OM_BASE_URL'),
+        'merchant_key' => env('OM_MERCHANT_KEY'),
+        'api_key' => env('OM_API_KEY'),
+    ],
+
 ];

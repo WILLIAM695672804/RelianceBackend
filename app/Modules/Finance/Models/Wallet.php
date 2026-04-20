@@ -34,4 +34,25 @@ class Wallet extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class);
+    }
+
+    public function holds()
+    {
+        return $this->hasMany(Hold::class);
+    }
+
+    public function activeHolds()
+    {
+        return $this->hasMany(Hold::class)->where('status', 'held');
+    }
+
+    public function availableBalance(): float
+    {
+        $heldAmount = $this->activeHolds()->sum('amount');
+        return (float) $this->balance - $heldAmount;
+    }
 }
