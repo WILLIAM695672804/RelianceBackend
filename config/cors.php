@@ -15,11 +15,17 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'broadcasting/auth'],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*'],
+    // On autorise 127.0.0.1 ET localhost pour éviter les blocages CORS selon l'URL ouverte.
+    // (La session ne persiste toutefois qu'en restant sur un seul hôte — voir 127.0.0.1.)
+    'allowed_origins' => array_values(array_unique(array_filter([
+        env('FRONTEND_URL', 'http://127.0.0.1:5173'),
+        'http://127.0.0.1:5173',
+        'http://localhost:5173',
+    ]))),
 
     'allowed_origins_patterns' => [],
 
@@ -29,6 +35,6 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => false,
+    'supports_credentials' => true,
 
 ];

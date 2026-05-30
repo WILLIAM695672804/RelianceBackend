@@ -28,75 +28,77 @@ Route::prefix('auth')->group(function () {
     */
     Route::middleware('auth:sanctum')->group(function () {
 
-        // Route protégée (email verification désactivée temporairement)
-            Route::get('/me', [AuthController::class, 'me']);
+        Route::get('/me', [AuthController::class, 'me']);
+        Route::post('/logout', [AuthController::class, 'logout']);
+        Route::post('/refresh', [AuthController::class, 'refresh']);
 
-        // 2FA Routes
+        // 2FA Routes (accessible sans email vérifié pour permettre la config)
         Route::prefix('2fa')->group(function () {
             Route::post('/generate', [TwoFactorController::class, 'generateSecret']);
             Route::post('/enable', [TwoFactorController::class, 'enable']);
             Route::post('/disable', [TwoFactorController::class, 'disable']);
         });
 
-        // Profile Routes
-        Route::prefix('profile')->group(function () {
-            Route::put('/', [ProfileController::class, 'update']);
-            Route::post('/avatar', [ProfileController::class, 'updateAvatar']);
-            Route::put('/password', [ProfileController::class, 'changePassword']);
-        });
+        // Routes nécessitant un email vérifié
+        Route::middleware('verified')->group(function () {
 
-        Route::post('/logout', [AuthController::class, 'logout']);
-        Route::post('/refresh', [AuthController::class, 'refresh']);
+            // Profile Routes
+            Route::prefix('profile')->group(function () {
+                Route::put('/', [ProfileController::class, 'update']);
+                Route::post('/avatar', [ProfileController::class, 'updateAvatar']);
+                Route::put('/password', [ProfileController::class, 'changePassword']);
+            });
 
-        // Role Upgrade — Client → Technicien
-        Route::post('/request-upgrade', [\App\Modules\Auth\Controllers\RoleUpgradeController::class, 'requestUpgrade']);
+            // Role Upgrade — Client → Technicien
+            Route::post('/request-upgrade', [\App\Modules\Auth\Controllers\RoleUpgradeController::class, 'requestUpgrade']);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Client (techniciens also allowed — §4.1 "Un technicien peut également agir en tant que client")
-        |--------------------------------------------------------------------------
-        */
-        Route::middleware('permission:create_request')->post('/requests', function () {
-            return 'Création demande OK';
-        });
+            /*
+            |--------------------------------------------------------------------------
+            | Client (techniciens also allowed — §4.1 "Un technicien peut également agir en tant que client")
+            |--------------------------------------------------------------------------
+            */
+            Route::middleware('permission:create_request')->post('/requests', function () {
+                return 'Création demande OK';
+            });
 
-        /*
-        |--------------------------------------------------------------------------
-        | Agence
-        |--------------------------------------------------------------------------
-        */
-        Route::middleware('role:agence')->group(function () {
-            Route::get('/agency/dashboard', fn() => 'Agence OK');
-        });
+            /*
+            |--------------------------------------------------------------------------
+            | Agence
+            |--------------------------------------------------------------------------
+            */
+            Route::middleware('role:agence')->group(function () {
+                Route::get('/agency/dashboard', fn() => 'Agence OK');
+            });
 
-        Route::middleware('permission:manage_technicians')->post('/agency/technicians', function () {
-            return 'Gestion techniciens OK';
-        });
+            Route::middleware('permission:manage_technicians')->post('/agency/technicians', function () {
+                return 'Gestion techniciens OK';
+            });
 
-        /*
-        |--------------------------------------------------------------------------
-        | Admin
-        |--------------------------------------------------------------------------
-        */
-        Route::middleware('role:admin')->group(function () {
-            Route::get('/admin/stats', [\App\Modules\Auth\Controllers\AdminDashboardController::class, 'stats']);
-            Route::post('/admin/users/{user}/roles', [RoleManagementController::class, 'assignRole']);
-            Route::delete('/admin/users/{user}/roles/{role}', [RoleManagementController::class, 'revokeRole']);
+            /*
+            |--------------------------------------------------------------------------
+            | Admin
+            |--------------------------------------------------------------------------
+            */
+            Route::middleware('role:admin')->group(function () {
+                Route::get('/admin/stats', [\App\Modules\Auth\Controllers\AdminDashboardController::class, 'stats']);
+                Route::post('/admin/users/{user}/roles', [RoleManagementController::class, 'assignRole']);
+                Route::delete('/admin/users/{user}/roles/{role}', [RoleManagementController::class, 'revokeRole']);
 
-            // User management
-            Route::get('/admin/users', [\App\Modules\Auth\Controllers\AdminUserController::class, 'index']);
-            Route::get('/admin/users/{id}', [\App\Modules\Auth\Controllers\AdminUserController::class, 'show']);
-            Route::patch('/admin/users/{id}/toggle-active', [\App\Modules\Auth\Controllers\AdminUserController::class, 'toggleActive']);
+                // User management
+                Route::get('/admin/users', [\App\Modules\Auth\Controllers\AdminUserController::class, 'index']);
+                Route::get('/admin/users/{id}', [\App\Modules\Auth\Controllers\AdminUserController::class, 'show']);
+                Route::patch('/admin/users/{id}/toggle-active', [\App\Modules\Auth\Controllers\AdminUserController::class, 'toggleActive']);
 
-            // Technician approval workflow
-            Route::get('/admin/technicians/pending', [\App\Modules\Auth\Controllers\AdminUserController::class, 'pendingTechnicians']);
-            Route::post('/admin/technicians/{id}/approve', [\App\Modules\Auth\Controllers\AdminUserController::class, 'approveTechnician']);
-            Route::post('/admin/technicians/{id}/reject', [\App\Modules\Auth\Controllers\AdminUserController::class, 'rejectTechnician']);
+                // Technician approval workflow
+                Route::get('/admin/technicians/pending', [\App\Modules\Auth\Controllers\AdminUserController::class, 'pendingTechnicians']);
+                Route::post('/admin/technicians/{id}/approve', [\App\Modules\Auth\Controllers\AdminUserController::class, 'approveTechnician']);
+                Route::post('/admin/technicians/{id}/reject', [\App\Modules\Auth\Controllers\AdminUserController::class, 'rejectTechnician']);
 
-            // Role Upgrade Admin
-            Route::get('/admin/upgrade-requests', [\App\Modules\Auth\Controllers\RoleUpgradeController::class, 'adminIndex']);
-            Route::post('/admin/upgrade-requests/{id}/approve', [\App\Modules\Auth\Controllers\RoleUpgradeController::class, 'approve']);
-            Route::post('/admin/upgrade-requests/{id}/reject', [\App\Modules\Auth\Controllers\RoleUpgradeController::class, 'reject']);
+                // Role Upgrade Admin
+                Route::get('/admin/upgrade-requests', [\App\Modules\Auth\Controllers\RoleUpgradeController::class, 'adminIndex']);
+                Route::post('/admin/upgrade-requests/{id}/approve', [\App\Modules\Auth\Controllers\RoleUpgradeController::class, 'approve']);
+                Route::post('/admin/upgrade-requests/{id}/reject', [\App\Modules\Auth\Controllers\RoleUpgradeController::class, 'reject']);
+            });
         });
 
         /*

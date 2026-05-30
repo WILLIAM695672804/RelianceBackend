@@ -8,6 +8,7 @@ use App\Modules\Finance\Models\Wallet;
 use App\Modules\Finance\Models\Transaction;
 use App\Modules\Finance\Resources\PaymentResource;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class PaymentController extends Controller
@@ -50,39 +51,42 @@ class PaymentController extends Controller
      */
     public function confirm(Request $request, string $id)
     {
-        $payment = Payment::where('id', $id)->firstOrFail();
+        return DB::transaction(function () use ($id) {
+            $payment = Payment::where('id', $id)->lockForUpdate()->firstOrFail();
 
-        if ($payment->status !== 'pending') {
-            return response()->json(['message' => 'Paiement déjà traité'], 409);
-        }
-
-        // Mark payment as settled
-        $payment->update([
-            'status' => 'settled',
-            'settled_at' => now(),
-        ]);
-
-        // If this is a wallet recharge, credit the wallet
-        $meta = $payment->metadata ?? [];
-        if (($meta['type'] ?? '') === 'wallet_recharge' && $payment->payer_id) {
-            $wallet = Wallet::where('user_id', $payment->payer_id)->first();
-            if ($wallet) {
-                $wallet->increment('balance', $payment->amount);
-                Transaction::create([
-                    'id' => (string) Str::uuid(),
-                    'wallet_id' => $wallet->id,
-                    'amount' => $payment->amount,
-                    'balance_after' => $wallet->fresh()->balance,
-                    'type' => 'credit',
-                    'related_payment' => $payment->id,
-                    'meta' => ['source' => 'recharge'],
-                ]);
+            if ($payment->status !== 'pending') {
+                return response()->json(['message' => 'Paiement déjà traité'], 409);
             }
-        }
 
-        return response()->json([
-            'message' => 'Paiement confirmé',
-            'payment' => new PaymentResource($payment),
-        ]);
+            // Mark payment as settled
+            $payment->update([
+                'status' => 'settled',
+                'settled_at' => now(),
+            ]);
+
+            // If this is a wallet recharge, credit the wallet
+            $meta = $payment->metadata ?? [];
+            if (($meta['type'] ?? '') === 'wallet_recharge' && $payment->payer_id) {
+                $wallet = Wallet::where('user_id', $payment->payer_id)->lockForUpdate()->first();
+                if ($wallet) {
+                    $wallet->increment('balance', $payment->amount);
+                    Transaction::create([
+                        'id' => (string) Str::uuid(),
+                        'wallet_id' => $wallet->id,
+                        'amount' => $payment->amount,
+                        'balance_after' => $wallet->fresh()->balance,
+                        'type' => 'credit',
+                        'related_payment' => $payment->id,
+                        'meta' => ['source' => 'recharge'],
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'message' => 'Paiement confirmé',
+                'payment' => new PaymentResource($payment),
+            ]);
+        });
     }
 }
+

@@ -9,6 +9,7 @@ use App\Modules\Auth\Requests\LoginRequest;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cookie;
 use PragmaRX\Google2FA\Google2FA;
 
 /**
@@ -17,6 +18,44 @@ use PragmaRX\Google2FA\Google2FA;
 
 class AuthController extends Controller
 {
+    /**
+     * Create a secure httpOnly cookie with the given token.
+     */
+    private function makeAuthCookie(string $token): \Symfony\Component\HttpFoundation\Cookie
+    {
+        $minutes = (int) config('sanctum.expiration', 1440); // default 24h
+        return Cookie::make(
+            'auth_token',
+            $token,
+            $minutes,
+            '/',
+            null,                                   // domain — null = current domain
+            config('app.env') === 'production',     // secure — true in prod
+            true,                                   // httpOnly
+            false,                                  // raw
+            'Lax'                                   // sameSite
+        );
+    }
+
+    /**
+     * Remove the auth cookie.
+     */
+    private function forgetAuthCookie(): \Symfony\Component\HttpFoundation\Cookie
+    {
+        return Cookie::forget('auth_token');
+    }
+
+    /**
+     * Prune old tokens when the user has too many active sessions (max 5).
+     */
+    private function pruneOldTokens(User $user, int $maxTokens = 5): void
+    {
+        $tokens = $user->tokens()->orderBy('created_at', 'desc')->get();
+        if ($tokens->count() >= $maxTokens) {
+            $user->tokens()->whereIn('id', $tokens->slice($maxTokens - 1)->pluck('id'))->delete();
+        }
+    }
+
     /**
      * Inscription
      */
@@ -60,11 +99,12 @@ class AuthController extends Controller
         // Charger le rôle
         $user->load('roles');
 
+        event(new \App\Events\Admin\NewUserRegistered($user));
+
         return response()->json([
             'message' => 'Inscription réussie',
             'user'    => $user,
-            'token'   => $token,
-        ], 201);
+        ], 201)->withCookie($this->makeAuthCookie($token));
     }
 
     /**
@@ -112,8 +152,12 @@ class AuthController extends Controller
             }
         }
 
-        $user->tokens()->delete();
+        // Keep existing sessions, prune old tokens if too many (max 5 active devices)
+        $this->pruneOldTokens($user);
         $token = $user->createToken('api-token')->plainTextToken;
+
+        // Update last_login timestamp
+        $user->update(['last_login' => now()]);
 
         Log::info('Login success', [
             'user_id' => $user->id,
@@ -126,8 +170,7 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Connexion réussie',
             'user'    => $user,
-            'token'   => $token,
-        ]);
+        ])->withCookie($this->makeAuthCookie($token));
     }
 
     /**
@@ -140,7 +183,7 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Déconnexion réussie'
-        ]);
+        ])->withCookie($this->forgetAuthCookie());
     }
 
     /**
@@ -161,8 +204,7 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Token rafraîchi',
             'user'    => $user,
-            'token'   => $token,
-        ]);
+        ])->withCookie($this->makeAuthCookie($token));
     }
 
     /**
@@ -178,3 +220,4 @@ class AuthController extends Controller
         ]);
     }
 }
+

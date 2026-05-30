@@ -36,16 +36,8 @@ class ProposalController extends Controller
         $clientRequest->status = 'quoted';
         $clientRequest->save();
 
-        // Push SSE notification to technician via cache
-        Cache::put("sse_proposals_{$request->technician_id}", [
-            'id'         => now()->timestamp,
-            'proposal_id' => $proposal->id,
-            'request_id' => $clientRequest->id,
-            'title'      => $clientRequest->title,
-            'price'      => $proposal->price,
-            'message'    => $proposal->message,
-            'created_at' => now()->toIso8601String(),
-        ], now()->addMinutes(10));
+        // Broadcast real-time notification to technician
+        event(new \App\Events\ProposalCreated($proposal));
 
         return response()->json([
             'status'  => 'success',
@@ -94,6 +86,8 @@ class ProposalController extends Controller
             ->where('status', 'pending')
             ->update(['status' => 'rejected']);
 
+        event(new \App\Events\ProposalAccepted($proposal));
+
         return response()->json([
             'status'  => 'success',
             'message' => 'Proposition acceptée',
@@ -112,6 +106,8 @@ class ProposalController extends Controller
 
         $proposal->status = 'refused';
         $proposal->save();
+
+        event(new \App\Events\ProposalRefused($proposal));
 
         return response()->json([
             'status'  => 'success',
@@ -203,9 +199,15 @@ class ProposalController extends Controller
 
         $activeProposal = $clientRequest->proposals->first();
 
+        $activeJob = \App\Modules\Operations\Models\TechnicianJob::where('request_id', $clientRequest->id)
+            ->whereNotIn('status', ['cancelled'])
+            ->orderBy('created_at', 'desc')
+            ->first();
+
         return response()->json([
             'status' => 'success',
             'data'   => [
+                'job_id' => $activeJob?->id,
                 'request' => [
                     'id'          => $clientRequest->id,
                     'title'       => $clientRequest->title,

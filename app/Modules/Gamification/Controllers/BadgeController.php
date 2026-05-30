@@ -11,7 +11,7 @@ class BadgeController extends Controller
 {
     public function index()
     {
-        return response()->json(['data' => Badge::all()]);
+        return response()->json(['data' => Badge::paginate(20)]);
     }
 
     public function userBadges(string $userId)

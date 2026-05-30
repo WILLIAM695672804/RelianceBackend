@@ -103,6 +103,11 @@ class RoleUpgradeController extends Controller
                 'updated_at' => now(),
             ]);
 
+        event(new \App\Events\RoleUpgradeDecision(
+            $upgradeRequest->user_id,
+            'approved'
+        ));
+
         return response()->json([
             'message' => "Utilisateur {$user->name} promu technicien",
         ]);
@@ -132,6 +137,12 @@ class RoleUpgradeController extends Controller
                 'reviewed_at' => now(),
                 'updated_at' => now(),
             ]);
+
+        event(new \App\Events\RoleUpgradeDecision(
+            $upgradeRequest->user_id,
+            'rejected',
+            $request->reason
+        ));
 
         return response()->json(['message' => 'Demande rejetée']);
     }

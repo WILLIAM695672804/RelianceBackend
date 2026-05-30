@@ -11,7 +11,8 @@ class RechargeWalletRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'amount' => 'required|numeric|min:100',
+            // XAF sans décimales : NotchPay rejette les montants fractionnaires.
+            'amount' => 'required|integer|min:100',
             'method' => 'required|in:card,bank_transfer,momo,om',
             'phone_number' => 'required_if:method,momo,om|string',
         ];

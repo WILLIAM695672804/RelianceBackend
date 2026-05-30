@@ -26,6 +26,19 @@ class PositionController extends Controller
             'updated_at' => now()->toIso8601String(),
         ], now()->addMinutes(5));
 
+        // Find active job for this technician and broadcast position
+        $activeJob = \App\Modules\Operations\Models\TechnicianJob::where('technician_id', $request->user()->id)
+            ->whereIn('status', ['in_progress', 'en_route'])
+            ->first();
+
+        if ($activeJob) {
+            event(new \App\Events\TechnicianPositionUpdated(
+                $activeJob->id,
+                $request->latitude,
+                $request->longitude
+            ));
+        }
+
         return response()->json(['status' => 'ok']);
     }
 

@@ -23,6 +23,8 @@ class NotificationService
             'is_read' => false,
         ]);
 
+        event(new \App\Events\NotificationCreated($notification));
+
         $settings = NotificationSetting::where('user_id', $userId)
             ->pluck('enabled', 'channel');
 

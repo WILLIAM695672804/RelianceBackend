@@ -88,6 +88,12 @@ class KycController extends Controller
             'validated_by' => auth()->id(),
         ]);
 
+        event(new \App\Events\KycStatusChanged(
+            $doc->user_id,
+            $request->status,
+            $request->rejection_reason
+        ));
+
         return response()->json([
             'message' => 'KYC mis à jour',
             'document' => $doc,

@@ -99,6 +99,23 @@ class EscrowService
                 'related_payment' => $payment->id,
             ]);
 
+            // Diffusion temps-réel APRÈS commit, et best-effort : un serveur websockets
+            // indisponible ne doit jamais annuler l'opération financière (rollback) ni
+            // faire échouer la requête.
+            $payerId = $payerWallet->user_id;
+            $payerBalance = $payerWallet->fresh()->balance;
+            $payeeBalance = $payeeWallet->fresh()->balance;
+            $holdAmount = $hold->amount;
+            DB::afterCommit(function () use ($payerId, $payeeId, $holdAmount, $netAmount, $payerBalance, $payeeBalance) {
+                try {
+                    event(new \App\Events\HoldCaptured($payerId, $payeeId, $holdAmount, $netAmount));
+                    event(new \App\Events\BalanceUpdated($payerId, $payerBalance, 'escrow_captured'));
+                    event(new \App\Events\BalanceUpdated($payeeId, $payeeBalance, 'escrow_received'));
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Broadcast escrow capture échoué: ' . $e->getMessage());
+                }
+            });
+
             return $payment;
         });
     }
@@ -115,6 +132,22 @@ class EscrowService
             }
 
             $hold->update(['status' => 'released', 'released_at' => now()]);
+
+            $wallet = \App\Modules\Finance\Models\Wallet::where('id', $hold->wallet_id)->first();
+            if ($wallet) {
+                $userId = $wallet->user_id;
+                $balance = $wallet->fresh()->balance;
+                $amount = $hold->amount;
+                DB::afterCommit(function () use ($userId, $balance, $amount) {
+                    try {
+                        event(new \App\Events\HoldReleased($userId, $amount));
+                        event(new \App\Events\BalanceUpdated($userId, $balance, 'hold_released'));
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::warning('Broadcast hold release échoué: ' . $e->getMessage());
+                    }
+                });
+            }
+
             return $hold->fresh();
         });
     }

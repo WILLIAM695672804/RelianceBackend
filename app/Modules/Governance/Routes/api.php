@@ -11,6 +11,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── SLA Events (authenticated users) ───────────────────
     Route::post('/sla-events', [SlaEventController::class, 'store']);
+    Route::get('/sla-events/mine', [SlaEventController::class, 'mine']);
     Route::get('/sla-events/request/{requestId}', [SlaEventController::class, 'index']);
 
     // ── Disputes (authenticated users) ─────────────────────

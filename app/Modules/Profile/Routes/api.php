@@ -14,6 +14,7 @@ Route::get('/technicians/{id}/profile', [TechnicianProfileController::class, 'sh
 Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('technician')->group(function () {
         Route::get('/profile', [TechnicianProfileController::class, 'show']);
+        Route::get('/stats', [TechnicianProfileController::class, 'stats']);
         Route::put('/profile', [TechnicianProfileController::class, 'updateProfile']);
         Route::put('/location', [TechnicianProfileController::class, 'updateLocation']);
         

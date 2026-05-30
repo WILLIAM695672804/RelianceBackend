@@ -78,6 +78,8 @@ class ClientRequestController extends Controller
 
             $clientRequest->load(['analysis', 'category', 'address']);
 
+            event(new \App\Events\Admin\NewRequestCreated($clientRequest));
+
             return response()->json([
                 'status'  => 'success',
                 'message' => 'Demande créée et analysée',

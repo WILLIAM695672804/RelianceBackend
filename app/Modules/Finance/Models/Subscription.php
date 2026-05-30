@@ -47,4 +47,42 @@ class Subscription extends Model
     {
         return $this->status === 'active' || $this->status === 'trial';
     }
+
+    public function isPaused(): bool
+    {
+        return $this->status === 'paused';
+    }
+
+    public function pause(): void
+    {
+        if (!$this->isActive()) {
+            throw new \DomainException('Seul un abonnement actif peut être mis en pause.');
+        }
+
+        $this->update([
+            'status' => 'paused',
+            'metadata' => array_merge($this->metadata ?? [], [
+                'paused_at' => now()->toIso8601String(),
+            ]),
+        ]);
+    }
+
+    public function resume(): void
+    {
+        if (!$this->isPaused()) {
+            throw new \DomainException('Seul un abonnement en pause peut être repris.');
+        }
+
+        $pausedAt = $this->metadata['paused_at'] ?? null;
+        $pausedDays = $pausedAt ? now()->diffInDays($pausedAt) : 0;
+
+        $this->update([
+            'status' => 'active',
+            'end_date' => $this->end_date?->addDays($pausedDays),
+            'metadata' => array_merge($this->metadata ?? [], [
+                'resumed_at' => now()->toIso8601String(),
+                'paused_days' => $pausedDays,
+            ]),
+        ]);
+    }
 }

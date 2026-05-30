@@ -31,6 +31,8 @@ class DisputeController extends Controller
             'status' => 'open',
         ]);
 
+        event(new \App\Events\Admin\DisputeOpened($dispute));
+
         return response()->json([
             'message' => 'Litige ouvert',
             'data' => $dispute->load(['opener', 'defendant']),
@@ -99,6 +101,8 @@ class DisputeController extends Controller
             'attachments' => $request->attachments,
         ]);
 
+        event(new \App\Events\DisputeMessageCreated($message));
+
         return response()->json([
             'message' => 'Message ajouté',
             'data' => $message->load('sender'),
@@ -137,6 +141,8 @@ class DisputeController extends Controller
             'resolved_by' => $request->user()->id,
             'resolved_at' => now(),
         ]);
+
+        event(new \App\Events\DisputeStatusChanged($dispute->fresh()));
 
         return response()->json([
             'message' => 'Litige résolu',

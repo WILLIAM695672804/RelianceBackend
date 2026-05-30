@@ -73,6 +73,10 @@ class QuoteController extends Controller
 
         $quote->update(['status' => 'sent']);
 
+        // Broadcast to client
+        $clientId = $quote->load('request')->request->client_id;
+        event(new \App\Events\QuoteSubmitted($quote, $clientId));
+
         return new QuoteResource($quote);
     }
 
@@ -107,6 +111,8 @@ class QuoteController extends Controller
 
         // Mettre à jour le statut de la demande
         $quote->request->update(['status' => 'assigned']);
+
+        event(new \App\Events\InvoiceCreated($invoice, $user->id));
 
         return response()->json([
             'status' => 'success',

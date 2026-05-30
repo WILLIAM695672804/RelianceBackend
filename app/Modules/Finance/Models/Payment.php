@@ -18,7 +18,7 @@ class Payment extends Model
 
     protected $fillable = [
         'payer_id', 'payee_id', 'method', 'amount',
-        'currency', 'status', 'external_ref', 'metadata',
+        'currency', 'status', 'external_ref', 'metadata', 'settled_at',
     ];
 
     protected $casts = [

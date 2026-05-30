@@ -91,6 +91,8 @@ class JobController extends Controller
 
         $job->update($updates);
 
+        event(new \App\Events\JobStatusChanged($job->fresh()));
+
         return new JobResource($job->load(['request', 'appointment']));
     }
 
@@ -114,6 +116,8 @@ class JobController extends Controller
         }
 
         $job->update(['phases' => $request->phases]);
+
+        event(new \App\Events\PhasesUpdated($job->fresh()));
 
         return new JobResource($job);
     }

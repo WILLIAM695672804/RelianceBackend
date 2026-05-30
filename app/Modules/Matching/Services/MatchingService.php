@@ -134,13 +134,14 @@ class MatchingService
                 DB::raw("(
                     SELECT ST_Distance(
                         l.geom,
-                        ST_SetSRID(ST_MakePoint({$lng}, {$lat}), 4326)::geography
+                        ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography
                     ) / 1000
                     FROM locations l
                     WHERE l.user_id = users.id AND l.is_default = true
                     LIMIT 1
                 ) as distance_km"),
-            ]);
+            ])
+            ->addBinding([$lng, $lat], 'select');
 
         if ($skillId) {
             $query->whereHas('skills', fn($q) => $q->where('skills.id', $skillId));
@@ -163,15 +164,18 @@ class MatchingService
         if ($skillId) {
             $matchedSkill = $tech->skills->firstWhere('id', $skillId);
             if ($matchedSkill) {
-                $proficiencyScore = min(1, $matchedSkill->pivot->proficiency / 5);
+                // Proficiency is stored on 0-100 scale per SQL schema
+                $proficiencyScore = min(1, $matchedSkill->pivot->proficiency / 100);
             }
         }
 
         // 4. Availability score (has schedule with slots for today's day)
         $availabilityScore = $this->checkAvailability($tech) ? 1.0 : 0.3;
 
-        // 5. Success rate (based on num_reviews as proxy)
-        $successRateScore = min(1, (int) $tech->num_reviews / 50);
+        // 5. Success rate (actual job completion ratio)
+        $totalJobs = $tech->technicianJobs()->count();
+        $completedJobs = $tech->technicianJobs()->where('status', 'completed')->count();
+        $successRateScore = $totalJobs > 0 ? ($completedJobs / $totalJobs) : 0.5;
 
         // Weighted total
         $total = ($distanceScore    * $this->weights['distance'])

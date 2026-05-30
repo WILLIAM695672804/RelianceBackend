@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 // use Illuminate\Support\Facades\Gate;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
 class AuthServiceProvider extends ServiceProvider
@@ -21,6 +22,10 @@ class AuthServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Le lien de réinitialisation pointe vers le FRONTEND (SPA), pas vers l'API.
+        ResetPassword::createUrlUsing(function ($notifiable, string $token) {
+            $base = rtrim(env('FRONTEND_URL', 'http://127.0.0.1:5173'), '/');
+            return $base . '/reset-password?token=' . $token . '&email=' . urlencode($notifiable->getEmailForPasswordReset());
+        });
     }
 }

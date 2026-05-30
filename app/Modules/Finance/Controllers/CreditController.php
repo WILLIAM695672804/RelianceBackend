@@ -5,8 +5,10 @@ namespace App\Modules\Finance\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Finance\Models\ExchangeRate;
 use App\Modules\Finance\Models\Wallet;
-use App\Modules\Finance\Models\Transaction;
+use App\Modules\Finance\Models\Payment;
+use App\Modules\Finance\Services\PaymentGateway\PaymentGatewayFactory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class CreditController extends Controller
@@ -21,13 +23,17 @@ class CreditController extends Controller
     }
 
     /**
-     * POST /v1/credits/purchase — Purchase platform credits using exchange rate.
+     * POST /v1/credits/purchase — Achat de crédits via la passerelle de paiement.
+     * Le montant en devise étrangère est converti en XAF, puis encaissé via NotchPay.
+     * Le wallet n'est crédité qu'à la confirmation du webhook (aucun crédit gratuit).
      */
     public function purchase(Request $request)
     {
         $request->validate([
             'amount' => 'required|numeric|min:1',
             'from_currency' => 'required|string|max:3',
+            'method' => 'required|in:card,bank_transfer,momo,om',
+            'phone_number' => 'required_if:method,momo,om|string',
         ]);
 
         $rate = ExchangeRate::where('from_currency', $request->from_currency)
@@ -35,34 +41,62 @@ class CreditController extends Controller
             ->where('active', true)
             ->firstOrFail();
 
-        $creditAmount = round($request->amount * $rate->rate, 2);
+        // XAF est une devise sans décimales : NotchPay rejette tout montant fractionnaire.
+        $creditAmount = (float) round($request->amount * $rate->rate);
 
-        $wallet = Wallet::firstOrCreate(
-            ['user_id' => $request->user()->id],
-            ['id' => (string) Str::uuid(), 'balance' => 0, 'currency' => 'XAF']
-        );
+        return DB::transaction(function () use ($request, $rate, $creditAmount) {
+            // Garantit l'existence du wallet (crédité plus tard par le webhook).
+            Wallet::firstOrCreate(
+                ['user_id' => $request->user()->id],
+                ['id' => (string) Str::uuid(), 'balance' => 0, 'currency' => 'XAF']
+            );
 
-        $wallet->increment('balance', $creditAmount);
+            // Paiement EN ATTENTE : aucun crédit tant que la passerelle n'a pas confirmé.
+            $payment = Payment::create([
+                'payer_id' => $request->user()->id,
+                'payee_id' => null,
+                'method'   => $request->method,
+                'amount'   => $creditAmount,
+                'currency' => 'XAF',
+                'status'   => 'pending',
+                'metadata' => [
+                    'type' => 'credit_purchase',
+                    'from_currency' => $request->from_currency,
+                    'original_amount' => (float) $request->amount,
+                    'rate' => $rate->rate,
+                    'phone_number' => $request->phone_number ?? null,
+                ],
+            ]);
 
-        Transaction::create([
-            'id' => (string) Str::uuid(),
-            'wallet_id' => $wallet->id,
-            'amount' => $creditAmount,
-            'balance_after' => $wallet->fresh()->balance,
-            'type' => 'credit',
-            'meta' => [
-                'source' => 'credit_purchase',
-                'from_currency' => $request->from_currency,
-                'original_amount' => $request->amount,
-                'rate' => $rate->rate,
-            ],
-        ]);
+            $gateway = PaymentGatewayFactory::make($request->method);
+            $result = $gateway->initiate(
+                (float) $creditAmount,
+                'XAF',
+                (string) ($request->phone_number ?? ''),
+                ['payment_id' => $payment->id, 'description' => 'Achat de crédits Reliance']
+            );
 
-        return response()->json([
-            'message' => "Crédits achetés: {$creditAmount} XAF",
-            'credited_amount' => $creditAmount,
-            'rate_used' => $rate->rate,
-        ]);
+            $payment->update([
+                'external_ref' => $result['external_ref'],
+                'status' => $result['success'] ? 'pending' : 'failed',
+            ]);
+
+            if (!$result['success']) {
+                return response()->json([
+                    'message' => 'Échec de l\'initiation du paiement',
+                    'payment_id' => $payment->id,
+                    'status' => 'failed',
+                ], 422);
+            }
+
+            return response()->json([
+                'message' => 'Paiement initié — crédits ajoutés après confirmation',
+                'payment_id' => $payment->id,
+                'credit_amount' => $creditAmount,
+                'rate_used' => $rate->rate,
+                'status' => 'pending',
+            ]);
+        });
     }
 
     // ── Admin endpoints ──────────────────────────────────────

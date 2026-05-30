@@ -68,11 +68,14 @@ class User extends Authenticatable implements MustVerifyEmail
         });
 
         static::created(function ($user) {
-            \App\Modules\Finance\Models\Wallet::create([
-                'user_id' => $user->id,
-                'balance' => 0,
-                'currency' => 'XAF'
-            ]);
+            // Only create wallets for clients, techniciens and agencies — not admins
+            if (!$user->hasRole('admin')) {
+                \App\Modules\Finance\Models\Wallet::create([
+                    'user_id' => $user->id,
+                    'balance' => 0,
+                    'currency' => 'XAF'
+                ]);
+            }
         });
     }
     public function kycDocuments()

@@ -9,10 +9,10 @@ use App\Modules\Finance\Controllers\SubscriptionController;
 use App\Modules\Finance\Controllers\PlatformFeeController;
 use App\Modules\Finance\Controllers\CreditController;
 use App\Modules\Finance\Controllers\WebhookController;
+use App\Modules\Finance\Controllers\AdminPayoutController;
 
 // ── Public Webhook Routes (no auth, verified by signature) ──
-Route::post('webhooks/momo', [WebhookController::class, 'momo']);
-Route::post('webhooks/om', [WebhookController::class, 'orangeMoney']);
+Route::post('webhooks/notchpay', [WebhookController::class, 'notchpay']);
 
 Route::middleware(['auth:sanctum'])->group(function () {
 
@@ -38,6 +38,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('subscriptions/mine', [SubscriptionController::class, 'mine']);
     Route::post('subscriptions/subscribe', [SubscriptionController::class, 'subscribe']);
     Route::post('subscriptions/cancel', [SubscriptionController::class, 'cancel']);
+    Route::post('subscriptions/pause', [SubscriptionController::class, 'pause']);
+    Route::post('subscriptions/resume', [SubscriptionController::class, 'resume']);
 
     // ── Credits & Exchange Rates ────────────────────────────
     Route::get('credits/rates', [CreditController::class, 'rates']);
@@ -61,5 +63,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
         // Exchange Rates Admin
         Route::get('admin/credits/rates', [CreditController::class, 'adminRates']);
         Route::post('admin/credits/rates', [CreditController::class, 'setRate']);
+
+        // Payout Admin (withdrawal approval workflow)
+        Route::get('admin/payouts', [AdminPayoutController::class, 'all']);
+        Route::get('admin/payouts/pending', [AdminPayoutController::class, 'pending']);
+        Route::get('admin/payouts/stats', [AdminPayoutController::class, 'stats']);
+        Route::post('admin/payouts/{id}/approve', [AdminPayoutController::class, 'approve']);
+        Route::post('admin/payouts/{id}/reject', [AdminPayoutController::class, 'reject']);
     });
 });

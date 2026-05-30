@@ -72,6 +72,14 @@ class HoldController extends Controller
             'method' => 'required|string',
         ]);
 
+        // Autorisation : seul le propriétaire du wallet portant le hold (ou un admin)
+        // peut capturer l'escrow. Sinon n'importe qui pourrait vider le wallet d'autrui.
+        $hold = Hold::with('wallet')->findOrFail($id);
+        $user = $request->user();
+        if (!$hold->wallet || ($hold->wallet->user_id !== $user->id && !$user->hasRole('admin'))) {
+            return response()->json(['message' => 'Non autorisé'], 403);
+        }
+
         try {
             $payment = $this->escrow->captureHold($id, $request->payee_id, $request->method);
 
@@ -89,6 +97,14 @@ class HoldController extends Controller
      */
     public function release(Request $request, string $id)
     {
+        // Autorisation : seul le propriétaire du wallet portant le hold (ou un admin)
+        // peut libérer l'escrow.
+        $existing = Hold::with('wallet')->findOrFail($id);
+        $user = $request->user();
+        if (!$existing->wallet || ($existing->wallet->user_id !== $user->id && !$user->hasRole('admin'))) {
+            return response()->json(['message' => 'Non autorisé'], 403);
+        }
+
         try {
             $hold = $this->escrow->releaseHold($id);
 

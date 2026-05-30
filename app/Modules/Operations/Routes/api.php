@@ -5,6 +5,7 @@ use App\Modules\Operations\Controllers\QuoteController;
 use App\Modules\Operations\Controllers\InvoiceController;
 use App\Modules\Operations\Controllers\AppointmentController;
 use App\Modules\Operations\Controllers\JobController;
+use App\Modules\Operations\Controllers\InterventionController;
 
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -36,7 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/{id}/status', [AppointmentController::class, 'updateStatus']);
     });
 
-    // ── Jobs (Suivi d'intervention) ─────────────────────────
+    // ── Jobs (Suivi d'intervention) ��────────────────────────
     Route::prefix('jobs')->group(function () {
         Route::get('/', [JobController::class, 'index']);
         Route::post('/', [JobController::class, 'store']);
@@ -44,5 +45,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/{id}/status', [JobController::class, 'updateStatus']);
         Route::put('/{id}/phases', [JobController::class, 'updatePhases']);
         Route::get('/{id}/tracking', [JobController::class, 'tracking']);
+    });
+
+    // ── Interventions ───────���──────────────────────────────
+    Route::prefix('interventions')->group(function () {
+        Route::get('/', [InterventionController::class, 'index']);
+        Route::post('/', [InterventionController::class, 'store']);
+        Route::get('/{id}', [InterventionController::class, 'show']);
+        Route::post('/{id}/start', [InterventionController::class, 'start']);
+        Route::post('/{id}/complete', [InterventionController::class, 'complete']);
     });
 });

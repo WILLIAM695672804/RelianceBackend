@@ -110,6 +110,42 @@ class SubscriptionController extends Controller
         ]);
     }
 
+    /**
+     * POST /v1/subscriptions/pause — Pause current subscription.
+     */
+    public function pause(Request $request)
+    {
+        $subscription = Subscription::where('subscriber_id', $request->user()->id)
+            ->whereIn('status', ['active', 'trial'])
+            ->latest()
+            ->firstOrFail();
+
+        $subscription->pause();
+
+        return response()->json([
+            'message' => 'Abonnement mis en pause',
+            'data' => new SubscriptionResource($subscription->fresh()),
+        ]);
+    }
+
+    /**
+     * POST /v1/subscriptions/resume — Resume a paused subscription.
+     */
+    public function resume(Request $request)
+    {
+        $subscription = Subscription::where('subscriber_id', $request->user()->id)
+            ->where('status', 'paused')
+            ->latest()
+            ->firstOrFail();
+
+        $subscription->resume();
+
+        return response()->json([
+            'message' => 'Abonnement repris',
+            'data' => new SubscriptionResource($subscription->fresh()),
+        ]);
+    }
+
     // ── Admin endpoints ──────────────────────────────────────
 
     /**
@@ -132,6 +168,8 @@ class SubscriptionController extends Controller
         $active = Subscription::where('status', 'active')->count();
         $cancelled = Subscription::where('status', 'cancelled')->count();
         $trial = Subscription::where('status', 'trial')->count();
+        $paused = Subscription::where('status', 'paused')->count();
+        $expired = Subscription::where('status', 'expired')->count();
         $total = Subscription::count();
 
         // Revenue estimate based on metadata
@@ -148,6 +186,8 @@ class SubscriptionController extends Controller
             'active' => $active,
             'cancelled' => $cancelled,
             'trial' => $trial,
+            'paused' => $paused,
+            'expired' => $expired,
             'total' => $total,
             'estimated_monthly_revenue' => round($monthlyRevenue, 2),
         ]);
@@ -161,7 +201,7 @@ class SubscriptionController extends Controller
         $subscription = Subscription::findOrFail($id);
 
         $request->validate([
-            'status' => 'sometimes|in:active,cancelled,trial,expired',
+            'status' => 'sometimes|in:active,cancelled,trial,expired,paused',
             'end_date' => 'sometimes|date',
         ]);
 
@@ -188,7 +228,10 @@ class SubscriptionController extends Controller
             'features' => 'nullable|array',
         ]);
 
-        $plan = SubscriptionPlan::create($request->all());
+        $plan = SubscriptionPlan::create($request->only([
+            'name', 'slug', 'description', 'price_monthly',
+            'price_yearly', 'currency', 'features',
+        ]));
 
         return response()->json([
             'message' => 'Plan créé',
@@ -212,7 +255,10 @@ class SubscriptionController extends Controller
             'active' => 'sometimes|boolean',
         ]);
 
-        $plan->update($request->all());
+        $plan->update($request->only([
+            'name', 'description', 'price_monthly',
+            'price_yearly', 'features', 'active',
+        ]));
 
         return response()->json([
             'message' => 'Plan mis à jour',

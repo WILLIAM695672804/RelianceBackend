@@ -102,4 +102,79 @@ class TechnicianProfileController extends Controller
             'data' => new IdentityHubResource($user)
         ]);
     }
+
+    /**
+     * GET /technician/stats — KPIs du dashboard technicien (gains, missions, note).
+     * Tout est calculé à partir des vraies données (wallet, transactions, jobs).
+     */
+    public function stats(Request $request)
+    {
+        $user = $request->user();
+        $userId = $user->id;
+
+        // ── Wallet & gains (crédits) ────────────────────────────
+        $wallet = \App\Modules\Finance\Models\Wallet::where('user_id', $userId)->first();
+        $balance = $wallet ? (float) $wallet->balance : 0.0;
+        $available = $wallet ? (float) $wallet->availableBalance() : 0.0;
+
+        $totalEarnings = 0.0;
+        $monthlyEarnings = 0.0;
+        if ($wallet) {
+            $base = \App\Modules\Finance\Models\Transaction::where('wallet_id', $wallet->id)->where('type', 'credit');
+            $totalEarnings = (float) (clone $base)->sum('amount');
+            $monthlyEarnings = (float) (clone $base)->where('created_at', '>=', now()->startOfMonth())->sum('amount');
+        }
+
+        // ── Missions ────────────────────────────────────────────
+        $jobs = \App\Modules\Operations\Models\TechnicianJob::where('technician_id', $userId);
+        $missionsTotal = (clone $jobs)->count();
+        $missionsCompleted = (clone $jobs)->where('status', 'completed')->count();
+        $completionRate = $missionsTotal > 0 ? round($missionsCompleted / $missionsTotal * 100, 1) : 0;
+
+        // Répartition des missions par catégorie
+        $categoryBreakdown = \App\Modules\Operations\Models\TechnicianJob::where('technician_id', $userId)
+            ->with('request.category')
+            ->get()
+            ->groupBy(fn ($j) => optional(optional($j->request)->category)->name ?? 'Autre')
+            ->map(fn ($g, $k) => ['label' => $k, 'value' => $g->count()])
+            ->values();
+
+        // Missions par mois (6 derniers mois)
+        $monthlyMissions = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $start = now()->startOfMonth()->subMonths($i);
+            $end = (clone $start)->endOfMonth();
+            $monthlyMissions[] = [
+                'label' => $start->format('M'),
+                'count' => (clone $jobs)->whereBetween('created_at', [$start, $end])->count(),
+            ];
+        }
+
+        // Missions récentes
+        $recentMissions = \App\Modules\Operations\Models\TechnicianJob::where('technician_id', $userId)
+            ->with(['request.category', 'request.address'])
+            ->orderByDesc('created_at')->limit(6)->get()
+            ->map(fn ($j) => [
+                'id' => $j->id,
+                'title' => optional($j->request)->title ?? 'Mission',
+                'category' => optional(optional($j->request)->category)->name ?? '—',
+                'city' => optional(optional($j->request)->address)->city ?? '—',
+                'status' => $j->status,
+            ]);
+
+        return response()->json([
+            'wallet_balance' => $balance,
+            'available_balance' => $available,
+            'total_earnings' => $totalEarnings,
+            'monthly_earnings' => $monthlyEarnings,
+            'rating' => (float) $user->rating,
+            'num_reviews' => (int) $user->num_reviews,
+            'missions_total' => $missionsTotal,
+            'missions_completed' => $missionsCompleted,
+            'completion_rate' => $completionRate,
+            'category_breakdown' => $categoryBreakdown,
+            'monthly_missions' => $monthlyMissions,
+            'recent_missions' => $recentMissions,
+        ]);
+    }
 }

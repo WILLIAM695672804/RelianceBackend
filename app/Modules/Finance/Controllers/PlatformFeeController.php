@@ -30,7 +30,9 @@ class PlatformFeeController extends Controller
             'meta' => 'nullable|array',
         ]);
 
-        $fee = PlatformFee::create($request->all());
+        $fee = PlatformFee::create($request->only([
+            'name', 'fee_type', 'value', 'applies_to', 'meta',
+        ]));
 
         return response()->json([
             'message' => 'Frais créé',
@@ -53,7 +55,9 @@ class PlatformFeeController extends Controller
             'meta' => 'nullable|array',
         ]);
 
-        $fee->update($request->all());
+        $fee->update($request->only([
+            'name', 'fee_type', 'value', 'applies_to', 'meta',
+        ]));
 
         return response()->json([
             'message' => 'Frais mis à jour',

@@ -16,6 +16,9 @@ class DatabaseSeeder extends Seeder
             RolesAndPermissionsSeeder::class,
             SkillsSeeder::class,
             MatchingRulesSeeder::class,
+            // Comptes de test (dependent des roles + competences ci-dessus)
+            AdminUserSeeder::class,
+            TestTechnicianSeeder::class,
         ]);
         // \App\Models\User::factory(10)->create();
 
