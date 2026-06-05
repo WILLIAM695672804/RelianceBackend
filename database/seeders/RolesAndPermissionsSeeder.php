@@ -10,14 +10,11 @@ class RolesAndPermissionsSeeder extends Seeder
 {
     public function run(): void
     {
-        // Nettoyer les tables Spatie (Postgres compatible)
-        \Illuminate\Support\Facades\DB::statement("SET session_replication_role = 'replica';");
-        \Illuminate\Support\Facades\DB::table('role_has_permissions')->truncate();
-        \Illuminate\Support\Facades\DB::table('model_has_roles')->truncate();
-        \Illuminate\Support\Facades\DB::table('model_has_permissions')->truncate();
-        \Illuminate\Support\Facades\DB::table('roles')->truncate();
-        \Illuminate\Support\Facades\DB::table('permissions')->truncate();
-        \Illuminate\Support\Facades\DB::statement("SET session_replication_role = 'origin';");
+        // ⚠️ NE PAS truncate ici : les tables Spatie (model_has_roles surtout)
+        // contiennent les liens utilisateur->role de TOUS les comptes. Les vider
+        // ferait perdre son role a chaque utilisateur existant a chaque seed.
+        // Ce seeder est 100% idempotent : firstOrCreate + givePermissionTo
+        // (qui n'ajoutent rien en double), donc rejouable a chaque demarrage.
 
         // Réinitialiser le cache Spatie
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();

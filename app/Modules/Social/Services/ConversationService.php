@@ -115,14 +115,18 @@ class ConversationService
 
     private function findPrivateConversation(string $userA, string $userB): ?Conversation
     {
+        // Une conversation privée = contient A, contient B, et aucun autre membre.
+        // NB : on évite withCount(...)->having('members_count', ...) car PostgreSQL
+        // n'autorise pas de référencer un alias de SELECT dans HAVING.
         return Conversation::whereHas('members', function ($q) use ($userA) {
             $q->where('user_id', $userA);
         })
         ->whereHas('members', function ($q) use ($userB) {
             $q->where('user_id', $userB);
         })
-        ->withCount('members')
-        ->having('members_count', '=', 2)
+        ->whereDoesntHave('members', function ($q) use ($userA, $userB) {
+            $q->whereNotIn('user_id', [$userA, $userB]);
+        })
         ->first();
     }
 }

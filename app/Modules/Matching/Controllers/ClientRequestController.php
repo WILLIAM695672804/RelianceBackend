@@ -91,7 +91,7 @@ class ClientRequestController extends Controller
     public function index(Request $request)
     {
         $requests = ClientRequest::where('client_id', $request->user()->id)
-            ->with(['analysis', 'category', 'address'])
+            ->with(['analysis', 'category', 'address', 'acceptedProposal.technician'])
             ->withCount('proposals')
             ->orderBy('created_at', 'desc')
             ->paginate(15);
@@ -102,7 +102,7 @@ class ClientRequestController extends Controller
     public function show(Request $request, string $id)
     {
         $clientRequest = ClientRequest::where('client_id', $request->user()->id)
-            ->with(['analysis', 'category', 'address', 'proposals.technician'])
+            ->with(['analysis', 'category', 'address', 'proposals.technician', 'acceptedProposal.technician'])
             ->findOrFail($id);
 
         return response()->json([

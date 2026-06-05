@@ -33,6 +33,15 @@ class ClientRequestResource extends JsonResource
                 ];
             }),
             'proposals_count' => $this->whenCounted('proposals'),
+            // Interlocuteur retenu sur la demande (technicien de la proposition acceptée).
+            // Permet au front de pré-remplir l'« utilisateur concerné » lors de l'ouverture d'un litige.
+            'counterpart'     => $this->whenLoaded('acceptedProposal', function () {
+                return $this->acceptedProposal && $this->acceptedProposal->technician ? [
+                    'id'   => $this->acceptedProposal->technician->id,
+                    'name' => $this->acceptedProposal->technician->name,
+                    'role' => 'technician',
+                ] : null;
+            }),
             'created_at'      => $this->created_at->toIso8601String(),
             'updated_at'      => $this->updated_at->toIso8601String(),
         ];

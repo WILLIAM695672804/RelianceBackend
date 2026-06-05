@@ -147,12 +147,26 @@ class ProposalController extends Controller
             return response()->json(['status' => 'success', 'data' => null]);
         }
 
+        // Job de suivi d'intervention en cours pour cette mission (s'il existe).
+        // Permet au cockpit technicien de piloter le statut sans passer par MissionDetail.
+        $activeJob = \App\Modules\Operations\Models\TechnicianJob::where('request_id', $proposal->request->id)
+            ->where('technician_id', $request->user()->id)
+            ->whereNotIn('status', ['cancelled'])
+            ->orderBy('created_at', 'desc')
+            ->first();
+
         return response()->json([
             'status' => 'success',
             'data'   => [
                 'proposal_id'  => $proposal->id,
                 'price'        => $proposal->price,
                 'accepted_at'  => $proposal->updated_at,
+                'job'          => $activeJob ? [
+                    'id'         => $activeJob->id,
+                    'status'     => $activeJob->status,
+                    'phases'     => $activeJob->phases,
+                    'started_at' => $activeJob->started_at,
+                ] : null,
                 'request'      => [
                     'id'          => $proposal->request->id,
                     'title'       => $proposal->request->title,

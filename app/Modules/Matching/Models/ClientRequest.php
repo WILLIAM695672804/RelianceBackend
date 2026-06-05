@@ -66,6 +66,11 @@ class ClientRequest extends Model
         return $this->hasMany(Proposal::class, 'request_id');
     }
 
+    public function acceptedProposal()
+    {
+        return $this->hasOne(Proposal::class, 'request_id')->where('status', 'accepted');
+    }
+
     public function matchingLogs()
     {
         return $this->hasMany(MatchingLog::class, 'request_id');

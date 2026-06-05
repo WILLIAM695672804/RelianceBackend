@@ -17,8 +17,14 @@ class AppointmentController extends Controller
     {
         $user = $request->user();
 
-        $appointments = Appointment::where('technician_id', $user->id)
-            ->with(['request', 'location'])
+        // Le technicien voit ses rendez-vous ; le client voit ceux lies a ses demandes.
+        $appointments = Appointment::where(function ($q) use ($user) {
+                $q->where('technician_id', $user->id)
+                  ->orWhereHas('request', function ($rq) use ($user) {
+                      $rq->where('client_id', $user->id);
+                  });
+            })
+            ->with(['request', 'technician', 'location'])
             ->orderBy('scheduled_start', 'asc')
             ->paginate(20);
 
