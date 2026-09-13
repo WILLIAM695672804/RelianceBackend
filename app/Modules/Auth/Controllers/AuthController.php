@@ -9,53 +9,10 @@ use App\Modules\Auth\Requests\LoginRequest;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Cookie;
 use PragmaRX\Google2FA\Google2FA;
-
-/**
- * @method \Illuminate\Database\Eloquent\Collection tokens()
- */
 
 class AuthController extends Controller
 {
-    /**
-     * Create a secure httpOnly cookie with the given token.
-     */
-    private function makeAuthCookie(string $token): \Symfony\Component\HttpFoundation\Cookie
-    {
-        $minutes = (int) config('sanctum.expiration', 1440); // default 24h
-        return Cookie::make(
-            'auth_token',
-            $token,
-            $minutes,
-            '/',
-            null,                                   // domain — null = current domain
-            config('app.env') === 'production',     // secure — true in prod
-            true,                                   // httpOnly
-            false,                                  // raw
-            'Lax'                                   // sameSite
-        );
-    }
-
-    /**
-     * Remove the auth cookie.
-     */
-    private function forgetAuthCookie(): \Symfony\Component\HttpFoundation\Cookie
-    {
-        return Cookie::forget('auth_token');
-    }
-
-    /**
-     * Prune old tokens when the user has too many active sessions (max 5).
-     */
-    private function pruneOldTokens(User $user, int $maxTokens = 5): void
-    {
-        $tokens = $user->tokens()->orderBy('created_at', 'desc')->get();
-        if ($tokens->count() >= $maxTokens) {
-            $user->tokens()->whereIn('id', $tokens->slice($maxTokens - 1)->pluck('id'))->delete();
-        }
-    }
-
     /**
      * Inscription
      */
@@ -94,7 +51,8 @@ class AuthController extends Controller
             $user->save();
         }
 
-        $token = $user->createToken('api-token')->plainTextToken;
+        Auth::guard('web')->login($user);
+        request()->session()->regenerate();
 
         // Charger le rôle
         $user->load('roles');
@@ -104,7 +62,7 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Inscription réussie',
             'user'    => $user,
-        ], 201)->withCookie($this->makeAuthCookie($token));
+        ], 201);
     }
 
     /**
@@ -152,9 +110,8 @@ class AuthController extends Controller
             }
         }
 
-        // Keep existing sessions, prune old tokens if too many (max 5 active devices)
-        $this->pruneOldTokens($user);
-        $token = $user->createToken('api-token')->plainTextToken;
+        Auth::guard('web')->login($user);
+        $request->session()->regenerate();
 
         // Update last_login timestamp
         $user->update(['last_login' => now()]);
@@ -170,41 +127,21 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Connexion réussie',
             'user'    => $user,
-        ])->withCookie($this->makeAuthCookie($token));
+        ]);
     }
 
     /**
      * Déconnexion
      */
-    public function logout()
+    public function logout(\Illuminate\Http\Request $request)
     {
-        $user = auth()->user();
-        $user->currentAccessToken()->delete();
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
         return response()->json([
             'message' => 'Déconnexion réussie'
-        ])->withCookie($this->forgetAuthCookie());
-    }
-
-    /**
-     * Rafraîchir le token
-     */
-    public function refresh()
-    {
-        $user = auth()->user();
-        
-        // Supprimer le token actuel
-        $user->currentAccessToken()->delete();
-        
-        // Créer un nouveau token
-        $token = $user->createToken('api-token')->plainTextToken;
-        
-        $user->load('roles');
-
-        return response()->json([
-            'message' => 'Token rafraîchi',
-            'user'    => $user,
-        ])->withCookie($this->makeAuthCookie($token));
+        ]);
     }
 
     /**

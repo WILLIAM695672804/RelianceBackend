@@ -30,7 +30,6 @@ Route::prefix('auth')->group(function () {
 
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
-        Route::post('/refresh', [AuthController::class, 'refresh']);
 
         // 2FA Routes (accessible sans email vérifié pour permettre la config)
         Route::prefix('2fa')->group(function () {

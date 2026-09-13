@@ -102,6 +102,7 @@ class User extends Authenticatable implements MustVerifyEmail
     public function skills()
     {
         return $this->belongsToMany(\App\Modules\Profile\Models\Skill::class, 'technician_skills', 'user_id', 'skill_id')
+                    ->using(\App\Modules\Profile\Models\TechnicianSkill::class)
                     ->withPivot('id', 'proficiency', 'hourly_rate', 'travel_fee', 'meta')
                     ->withTimestamps();
     }

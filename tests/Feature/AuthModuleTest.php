@@ -30,7 +30,8 @@ class AuthModuleTest extends TestCase
         ]);
 
         $response->assertStatus(201)
-                 ->assertJsonStructure(['message', 'user', 'token']);
+                 ->assertJsonStructure(['message', 'user'])
+                 ->assertJsonMissing(['token']);
         
         // Assert valid Spatie role was assigned (and the column is purely virtual)
         $user = clone User::where('email', 'john@test.com')->first();
@@ -44,7 +45,8 @@ class AuthModuleTest extends TestCase
             'email' => 'profile@test.com',
             'password' => bcrypt('password123'),
         ]);
-        
+        $user->markEmailAsVerified(); // route protégée par le middleware 'verified' ; email_verified_at n'est pas fillable
+
         $response = $this->actingAs($user)->putJson('/api/v1/auth/profile', [
             'name' => 'John Updated',
             'phone' => '+33612345678'
@@ -95,7 +97,7 @@ class AuthModuleTest extends TestCase
             'password' => 'password123',
             'code' => $secondValidCode
         ]);
-        $loginSuccess->assertStatus(200)->assertJsonStructure(['token']);
+        $loginSuccess->assertStatus(200)->assertJsonStructure(['message', 'user']);
     }
 
     public function test_4_admin_role_management()
@@ -107,6 +109,7 @@ class AuthModuleTest extends TestCase
             'email' => 'admin@test.com',
             'password' => bcrypt('password123'),
         ]);
+        $admin->markEmailAsVerified(); // routes admin protégées par le middleware 'verified' ; email_verified_at n'est pas fillable
         $admin->assignRole('admin');
 
         $technicien = User::create([
@@ -143,12 +146,67 @@ class AuthModuleTest extends TestCase
             'competences' => ['Électricité', 'Climatisation / Froid', 'Installation solaire']
         ]);
 
+        // Les tables technician_profiles/agency_profiles ont été supprimées
+        // (migration cleanup_obsolete_profile_tables) au profit de la colonne
+        // JSON `meta` sur users — c'est là que register() stocke ces données.
         $response->assertStatus(201)
-                 ->assertJsonPath('user.technician_profile.bio', 'Expert électricien avec 10 ans d\'expérience');
+                 ->assertJsonPath('user.meta.bio', 'Expert électricien avec 10 ans d\'expérience');
 
         $user = User::where('email', 'techpro@test.com')->first();
-        $this->assertNotNull($user->technicianProfile);
-        $this->assertEquals(['Électricité', 'Climatisation / Froid', 'Installation solaire'], $user->technicianProfile->competences);
+        $this->assertEquals('Expert électricien avec 10 ans d\'expérience', $user->meta['bio']);
+        $this->assertEquals(['Électricité', 'Climatisation / Froid', 'Installation solaire'], $user->meta['competences_intro']);
+    }
+
+    /**
+     * Régression : le login doit établir une session Sanctum authentifiant les
+     * requêtes suivantes provenant de l'origine SPA déclarée dans
+     * SANCTUM_STATEFUL_DOMAINS, sans dépendre d'un cookie de jeton maison
+     * (l'ancien mécanisme `auth_token` + SameSite=Lax cassait /auth/me dès que
+     * le frontend n'était pas ouvert exactement sur le même hôte que l'API).
+     */
+    public function test_7_login_establishes_stateful_session_for_spa_origin()
+    {
+        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
+
+        $user = User::create([
+            'name' => 'Session User',
+            'email' => 'session@test.com',
+            'password' => bcrypt('password123'),
+        ]);
+
+        // Origine déclarée dans SANCTUM_STATEFUL_DOMAINS (voir .env)
+        $headers = ['Referer' => 'http://127.0.0.1:5173'];
+
+        $login = $this->postJson('/api/v1/auth/login', [
+            'email' => 'session@test.com',
+            'password' => 'password123',
+        ], $headers);
+
+        $login->assertStatus(200)
+              ->assertJsonStructure(['message', 'user'])
+              ->assertJsonMissing(['token'])
+              ->assertCookieMissing('auth_token');
+
+        $sessionCookieName = config('session.cookie');
+        $sessionId = collect($login->headers->getCookies())
+            ->first(fn ($cookie) => $cookie->getName() === $sessionCookieName)
+            ?->getValue();
+
+        $this->assertNotNull($sessionId, 'Le login aurait dû poser le cookie de session Sanctum.');
+
+        // Requête suivante authentifiée uniquement par le cookie de session
+        // (aucun en-tête Authorization) — c'est exactement le scénario qui
+        // échouait (401 en boucle) avec l'ancien cookie auth_token.
+        $me = $this->withCookie($sessionCookieName, $sessionId)
+                   ->getJson('/api/v1/auth/me', $headers);
+
+        $me->assertStatus(200)
+           ->assertJsonPath('user.email', 'session@test.com');
+
+        // Le logout doit invalider cette session : /auth/me redevient 401.
+        $logout = $this->withCookie($sessionCookieName, $sessionId)
+                       ->postJson('/api/v1/auth/logout', [], $headers);
+        $logout->assertStatus(200);
     }
 
     public function test_6_agency_registration_creates_profile()
@@ -167,11 +225,12 @@ class AuthModuleTest extends TestCase
             'description' => 'Agence spécialisée en installations électriques'
         ]);
 
+        // Cf. commentaire de test_5 : stockage dans `meta`, plus dans agency_profiles.
         $response->assertStatus(201)
-                 ->assertJsonPath('user.agency_profile.agency_name', 'TechAgence Douala');
+                 ->assertJsonPath('user.meta.agency_name', 'TechAgence Douala');
 
         $user = User::where('email', 'agence@test.com')->first();
-        $this->assertNotNull($user->agencyProfile);
-        $this->assertEquals('Douala, Bonapriso', $user->agencyProfile->address);
+        $this->assertEquals('TechAgence Douala', $user->meta['agency_name']);
+        $this->assertEquals('Douala, Bonapriso', $user->meta['address']);
     }
 }
