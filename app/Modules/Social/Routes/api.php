@@ -12,9 +12,11 @@ use App\Modules\Social\Controllers\AdminConversationController;
 // ── Routes publiques ────────────────────────────────────────────
 Route::get('/posts/explore', [PostController::class, 'explore']);
 Route::get('/posts/search', [PostController::class, 'search']);
-Route::get('/posts/{id}', [PostController::class, 'show']);
-Route::get('/posts/{postId}/comments', [CommentController::class, 'index']);
-Route::get('/posts/{postId}/likers', [LikeController::class, 'likers']);
+// Contrainte UUID indispensable : sans elle, `/posts/feed` et `/posts/trending`
+// (déclarées plus bas, derrière l'authentification) sont capturées par `/posts/{id}`.
+Route::get('/posts/{id}', [PostController::class, 'show'])->whereUuid('id');
+Route::get('/posts/{postId}/comments', [CommentController::class, 'index'])->whereUuid('postId');
+Route::get('/posts/{postId}/likers', [LikeController::class, 'likers'])->whereUuid('postId');
 Route::get('/users/{userId}/posts', [PostController::class, 'userPosts']);
 Route::get('/users/{userId}/followers', [FollowController::class, 'followers']);
 Route::get('/users/{userId}/following', [FollowController::class, 'following']);
