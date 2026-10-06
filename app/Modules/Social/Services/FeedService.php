@@ -87,7 +87,8 @@ class FeedService
             ->whereNotIn('id', $alreadyFollowing)
             ->orderByDesc('rating')
             ->limit($limit)
-            ->select('id', 'name', 'avatar_url', 'rating', 'is_verified')
+            // La colonne s'appelle `verified` : `is_verified` n'existe pas sur `users`.
+            ->select('id', 'name', 'avatar_url', 'rating', 'verified')
             ->get()
             ->toArray();
     }
