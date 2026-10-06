@@ -37,6 +37,15 @@ class Agency extends Model
         return $this->hasMany(AgencyMembership::class, 'agency_id');
     }
 
+    /** Un administrateur de l'agence : le créateur l'est d'office. */
+    public function isAdmin(string $userId): bool
+    {
+        return $this->memberships()
+            ->where('user_id', $userId)
+            ->where('role', 'admin')
+            ->exists();
+    }
+
     public function members()
     {
         return $this->belongsToMany(User::class, 'agency_memberships', 'agency_id', 'user_id')

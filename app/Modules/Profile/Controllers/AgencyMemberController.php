@@ -36,13 +36,8 @@ class AgencyMemberController extends Controller
 
         $agency = Agency::findOrFail($id);
 
-        // Check authorization (only agency owner/admin)
-        $membership = AgencyMembership::where('agency_id', $id)
-            ->where('user_id', $request->user()->id)
-            ->where('role', 'admin')
-            ->first();
-
-        if (!$membership && $agency->owner_id !== $request->user()->id) {
+        // Seul un administrateur de l'agence peut y rattacher un membre.
+        if (!$agency->isAdmin($request->user()->id)) {
             return response()->json(['message' => 'Non autorisé'], 403);
         }
 
@@ -75,13 +70,13 @@ class AgencyMemberController extends Controller
     {
         $agency = Agency::findOrFail($id);
 
-        // Check authorization
-        if ($agency->owner_id !== $request->user()->id) {
+        // Seul un administrateur de l'agence peut en retirer un membre.
+        if (!$agency->isAdmin($request->user()->id)) {
             return response()->json(['message' => 'Non autorisé'], 403);
         }
 
-        // Can't remove the owner
-        if ($userId === $agency->owner_id) {
+        // Un administrateur ne se retire pas lui-même : l'agence resterait sans responsable.
+        if ($userId === $request->user()->id) {
             return response()->json(['message' => 'Impossible de retirer le propriétaire'], 422);
         }
 

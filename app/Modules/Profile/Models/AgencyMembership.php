@@ -2,6 +2,8 @@
 
 namespace App\Modules\Profile\Models;
 
+use App\Modules\Auth\Models\User;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Support\Str;
 
@@ -21,6 +23,18 @@ class AgencyMembership extends Pivot
     protected $casts = [
         'joined_at' => 'datetime',
     ];
+
+    /** Membre de l'agence ; la relation est requise par AgencyMemberController. */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /** Agence du rattachement. */
+    public function agency(): BelongsTo
+    {
+        return $this->belongsTo(Agency::class, 'agency_id');
+    }
 
     protected static function booted()
     {

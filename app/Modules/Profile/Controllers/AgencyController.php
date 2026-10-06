@@ -36,14 +36,15 @@ class AgencyController extends Controller
             'email' => 'nullable|email',
         ]);
 
+        // La table `agencies` ne porte pas de propriétaire : l'appartenance administrateur
+        // (créée juste après) en tient lieu. Les coordonnées vivent dans `contact_*`.
         $agency = Agency::create([
             'id' => (string) Str::uuid(),
             'name' => $request->name,
-            'owner_id' => $request->user()->id,
             'description' => $request->description,
             'address' => $request->address,
-            'phone' => $request->phone,
-            'email' => $request->email,
+            'contact_phone' => $request->phone,
+            'contact_email' => $request->email,
         ]);
 
         // Add owner as admin member
@@ -65,7 +66,8 @@ class AgencyController extends Controller
      */
     public function show(string $id)
     {
-        $agency = Agency::with(['members.user', 'owner'])
+        // `members` est un belongsToMany(User) : la relation imbriquée `members.user` n'existe pas.
+        $agency = Agency::with(['members'])
             ->findOrFail($id);
 
         return response()->json(['data' => $agency]);
@@ -78,8 +80,8 @@ class AgencyController extends Controller
     {
         $agency = Agency::findOrFail($id);
 
-        // Only owner can update
-        if ($agency->owner_id !== $request->user()->id) {
+        // Seul un administrateur de l'agence peut la modifier.
+        if (!$agency->isAdmin($request->user()->id)) {
             return response()->json(['message' => 'Non autorisé'], 403);
         }
 
@@ -91,7 +93,13 @@ class AgencyController extends Controller
             'email' => 'nullable|email',
         ]);
 
-        $agency->update($request->only(['name', 'description', 'address', 'phone', 'email']));
+        $agency->update(array_filter([
+            'name' => $request->input('name'),
+            'description' => $request->input('description'),
+            'address' => $request->input('address'),
+            'contact_phone' => $request->input('phone'),
+            'contact_email' => $request->input('email'),
+        ], fn ($value) => $value !== null));
 
         return response()->json([
             'message' => 'Agence mise à jour',
@@ -110,7 +118,7 @@ class AgencyController extends Controller
             return response()->json(['data' => null, 'message' => 'Vous n\'appartenez à aucune agence']);
         }
 
-        $agency = Agency::with(['members.user'])->find($membership->agency_id);
+        $agency = Agency::with(['members'])->find($membership->agency_id);
 
         return response()->json(['data' => $agency]);
     }
