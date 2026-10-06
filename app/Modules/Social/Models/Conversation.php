@@ -43,7 +43,9 @@ class Conversation extends Model
 
     public function lastMessage()
     {
-        return $this->hasOne(Message::class)->latestOfMany('created_at');
+        // `latestOfMany()` agrège la clé primaire (`MAX(uuid)`), que PostgreSQL refuse :
+        // on ordonne explicitement, le premier message du tri étant le plus récent.
+        return $this->hasOne(Message::class)->latest('created_at');
     }
 
     public function hasMember(string $userId): bool
