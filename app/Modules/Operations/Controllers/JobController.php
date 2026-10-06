@@ -91,6 +91,14 @@ class JobController extends Controller
 
         $job->update($updates);
 
+        // La demande suit la mission : sans cela, le client ne peut jamais déposer d'avis
+        // (ReviewController exige une demande « completed »).
+        if ($validated['status'] === 'completed') {
+            $job->request?->update(['status' => 'completed']);
+        } elseif ($validated['status'] === 'cancelled') {
+            $job->request?->update(['status' => 'cancelled']);
+        }
+
         event(new \App\Events\JobStatusChanged($job->fresh()));
 
         return new JobResource($job->load(['request', 'appointment']));
