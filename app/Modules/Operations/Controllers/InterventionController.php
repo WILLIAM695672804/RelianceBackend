@@ -10,10 +10,15 @@ class InterventionController extends Controller
 {
     public function index(Request $request)
     {
+        $user  = $request->user();
         $query = Intervention::with(['technician', 'request']);
 
-        if ($request->user()->hasRole('technician') || $request->user()->hasRole('technicien')) {
-            $query->where('technician_id', $request->user()->id);
+        // Sans restriction, un client listait les interventions de tous les autres :
+        // chacun ne voit que les siennes, l'administration exceptée.
+        if ($user->hasRole('technician') || $user->hasRole('technicien')) {
+            $query->where('technician_id', $user->id);
+        } elseif (!$user->hasRole('admin')) {
+            $query->whereHas('request', fn ($request) => $request->where('client_id', $user->id));
         }
 
         return response()->json([
@@ -21,9 +26,18 @@ class InterventionController extends Controller
         ]);
     }
 
-    public function show(string $id)
+    public function show(string $id, Request $request)
     {
         $intervention = Intervention::with(['technician', 'request', 'job'])->findOrFail($id);
+        $user = $request->user();
+
+        // Le rapport ne regarde que les deux parties de la mission.
+        $isTechnician = $intervention->technician_id === $user->id;
+        $isClient     = $intervention->request?->client_id === $user->id;
+        if (!$isTechnician && !$isClient && !$user->hasRole('admin')) {
+            return response()->json(['message' => 'Non autorisé'], 403);
+        }
+
         return response()->json(['data' => $intervention]);
     }
 
