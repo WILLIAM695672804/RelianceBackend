@@ -14,8 +14,8 @@ class AdminConversationController extends Controller
      */
     public function index(Request $request)
     {
-        $conversations = Conversation::with(['participants'])
-            ->orderBy('updated_at', 'desc')
+        $conversations = Conversation::with(['members.user:id,name', 'lastMessage'])
+            ->orderBy('created_at', 'desc')
             ->paginate(20);
 
         return response()->json($conversations);
@@ -26,7 +26,7 @@ class AdminConversationController extends Controller
      */
     public function show(string $id)
     {
-        $conversation = Conversation::with(['participants', 'messages.sender'])
+        $conversation = Conversation::with(['members.user:id,name', 'messages.sender'])
             ->findOrFail($id);
 
         return response()->json(['data' => $conversation]);

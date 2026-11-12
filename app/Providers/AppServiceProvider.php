@@ -20,6 +20,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Pusher résilient : voir ResilientPusherBroadcaster.
+        \Illuminate\Support\Facades\Broadcast::extend('pusher', function ($app, array $config) {
+            $pusher = $app->make(\Illuminate\Broadcasting\BroadcastManager::class)->pusher($config);
+
+            return new \App\Broadcasting\ResilientPusherBroadcaster($pusher);
+        });
+
         $auditableModels = [
             \App\Modules\Auth\Models\User::class,
             \App\Modules\Finance\Models\Wallet::class,
