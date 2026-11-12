@@ -95,6 +95,7 @@ class CreditController extends Controller
                 'credit_amount' => $creditAmount,
                 'rate_used' => $rate->rate,
                 'status' => 'pending',
+                'instructions' => $result['raw']['instructions'] ?? null,
             ]);
         });
     }

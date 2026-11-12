@@ -69,6 +69,20 @@ class SubscriptionController extends Controller
             ? $plan->price_monthly
             : $plan->price_yearly;
 
+        // L'abonnement est payant : débit du portefeuille avant toute activation.
+        try {
+            $payment = ((float) $price) > 0
+                ? app(\App\Modules\Finance\Services\WalletService::class)->chargePlatform(
+                    $user->id,
+                    (float) $price,
+                    'subscription',
+                    ['plan' => $plan->slug, 'billing_cycle' => $request->billing_cycle]
+                )
+                : null;
+        } catch (\DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 402);
+        }
+
         $subscription = Subscription::create([
             'subscriber_id' => $user->id,
             'plan_name' => $plan->slug,
@@ -81,6 +95,7 @@ class SubscriptionController extends Controller
                 'billing_cycle' => $request->billing_cycle,
                 'price' => $price,
                 'currency' => $plan->currency,
+                'payment_id' => $payment?->id,
             ],
         ]);
 

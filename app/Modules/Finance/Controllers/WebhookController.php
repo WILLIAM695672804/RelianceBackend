@@ -69,53 +69,12 @@ class WebhookController extends Controller
             $status = $gateway->checkStatus($externalRef);
 
             if (in_array($status['status'], ['SUCCESSFUL', 'SUCCESS', 'COMPLETED', 'COMPLETE'])) {
-                return DB::transaction(function () use ($payment, $externalRef, $rawData, $method) {
-                    $payment = Payment::where('id', $payment->id)->lockForUpdate()->first();
+                $settled = app(\App\Modules\Finance\Services\WalletService::class)
+                    ->settleRecharge($payment->id, ['gateway_response' => $rawData, 'method' => $method], 'gateway_callback');
 
-                    if ($payment->status !== 'pending') {
-                        return response()->json(['message' => 'Payment already processed'], 409);
-                    }
-
-                    $payment->update([
-                        'status' => 'settled',
-                        'settled_at' => now(),
-                        'external_ref' => $externalRef,
-                        'metadata' => array_merge($payment->metadata ?? [], ['gateway_response' => $rawData]),
-                    ]);
-
-                    // Credit wallet
-                    if ($payment->payer_id) {
-                        $wallet = Wallet::where('user_id', $payment->payer_id)->lockForUpdate()->first();
-                        if ($wallet) {
-                            $wallet->increment('balance', $payment->amount);
-                            Transaction::create([
-                                'id' => (string) Str::uuid(),
-                                'wallet_id' => $wallet->id,
-                                'amount' => $payment->amount,
-                                'balance_after' => $wallet->fresh()->balance,
-                                'type' => 'credit',
-                                'related_payment' => $payment->id,
-                                'meta' => ['source' => 'gateway_callback', 'method' => $method],
-                            ]);
-
-                            // Diffusion temps-réel APRÈS commit et best-effort :
-                            // un websockets indisponible ne doit pas annuler le crédit.
-                            $payerId = $payment->payer_id;
-                            $balance = $wallet->fresh()->balance;
-                            $settledPayment = $payment;
-                            DB::afterCommit(function () use ($settledPayment, $payerId, $balance) {
-                                try {
-                                    event(new \App\Events\PaymentSettled($settledPayment));
-                                    event(new \App\Events\BalanceUpdated($payerId, $balance, 'wallet_recharge'));
-                                } catch (\Throwable $e) {
-                                    Log::warning('Broadcast crédit wallet échoué: ' . $e->getMessage());
-                                }
-                            });
-                        }
-                    }
-
-                    return response()->json(['message' => 'Payment confirmed']);
-                });
+                return $settled
+                    ? response()->json(['message' => 'Payment confirmed'])
+                    : response()->json(['message' => 'Payment already processed'], 409);
             }
         } catch (\Exception $e) {
             Log::error("Payment gateway verification failed: " . $e->getMessage());

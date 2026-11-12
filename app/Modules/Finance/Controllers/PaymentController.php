@@ -9,7 +9,8 @@ use App\Modules\Finance\Models\Transaction;
 use App\Modules\Finance\Resources\PaymentResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use App\Modules\Finance\Services\WalletService;
+use App\Modules\Finance\Services\PaymentGateway\PaymentGatewayFactory;
 
 class PaymentController extends Controller
 {
@@ -46,47 +47,46 @@ class PaymentController extends Controller
     }
 
     /**
-     * POST /v1/payments/{id}/confirm — Webhook / callback to confirm a payment.
-     * In production, this would be called by the payment gateway webhook.
+     * POST /v1/payments/{id}/confirm — Confirmation d'un paiement en attente.
+     *
+     * - virement bancaire : confirmation manuelle, réservée à l'administrateur ;
+     * - MoMo / OM / carte : l'état est vérifié auprès de la passerelle, jamais déclaré par l'appelant.
      */
-    public function confirm(Request $request, string $id)
+    public function confirm(Request $request, string $id, WalletService $wallets)
     {
-        return DB::transaction(function () use ($id) {
-            $payment = Payment::where('id', $id)->lockForUpdate()->firstOrFail();
+        $user = $request->user();
+        $payment = Payment::findOrFail($id);
 
-            if ($payment->status !== 'pending') {
-                return response()->json(['message' => 'Paiement déjà traité'], 409);
+        if ($payment->payer_id !== $user->id && !$user->hasRole('admin')) {
+            return response()->json(['message' => 'Non autorisé'], 403);
+        }
+        if ($payment->status !== 'pending') {
+            return response()->json(['message' => 'Paiement déjà traité'], 409);
+        }
+
+        if ($payment->method === 'bank_transfer') {
+            if (!$user->hasRole('admin')) {
+                return response()->json(['message' => 'Un virement est confirmé par un administrateur après vérification.'], 403);
             }
-
-            // Mark payment as settled
-            $payment->update([
-                'status' => 'settled',
-                'settled_at' => now(),
-            ]);
-
-            // If this is a wallet recharge, credit the wallet
-            $meta = $payment->metadata ?? [];
-            if (($meta['type'] ?? '') === 'wallet_recharge' && $payment->payer_id) {
-                $wallet = Wallet::where('user_id', $payment->payer_id)->lockForUpdate()->first();
-                if ($wallet) {
-                    $wallet->increment('balance', $payment->amount);
-                    Transaction::create([
-                        'id' => (string) Str::uuid(),
-                        'wallet_id' => $wallet->id,
-                        'amount' => $payment->amount,
-                        'balance_after' => $wallet->fresh()->balance,
-                        'type' => 'credit',
-                        'related_payment' => $payment->id,
-                        'meta' => ['source' => 'recharge'],
-                    ]);
-                }
+        } else {
+            try {
+                $status = PaymentGatewayFactory::make($payment->method)->checkStatus((string) $payment->external_ref);
+            } catch (\Throwable $e) {
+                return response()->json(['message' => 'Vérification auprès de la passerelle impossible.'], 502);
             }
+            if (!in_array($status['status'], ['SUCCESSFUL', 'SUCCESS', 'COMPLETED', 'COMPLETE'], true)) {
+                return response()->json(['message' => 'Paiement non encore confirmé par la passerelle.', 'status' => $status['status']], 202);
+            }
+        }
 
-            return response()->json([
-                'message' => 'Paiement confirmé',
-                'payment' => new PaymentResource($payment),
-            ]);
-        });
+        $settled = $wallets->settleRecharge($payment->id, [], 'confirmation');
+        if (!$settled) {
+            return response()->json(['message' => 'Paiement déjà traité'], 409);
+        }
+
+        return response()->json([
+            'message' => 'Paiement confirmé',
+            'payment' => new PaymentResource($settled),
+        ]);
     }
 }
-

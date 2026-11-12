@@ -4,6 +4,9 @@ namespace App\Modules\Operations\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use App\Modules\Finance\Models\Hold;
+use App\Modules\Finance\Services\EscrowService;
 use App\Modules\Operations\Models\Invoice;
 use App\Modules\Operations\Resources\InvoiceResource;
 
@@ -41,9 +44,13 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Marquer une facture comme payée.
+     * POST /v1/invoices/{id}/pay — Règle la facture depuis le portefeuille du client.
+     *
+     * Les fonds sont d'abord placés sous séquestre (hold) s'ils ne l'ont pas été à
+     * l'acceptation du devis, puis capturés au profit de l'émetteur (commission déduite).
+     * Un solde insuffisant renvoie 402 : le client recharge (MoMo, OM, carte, virement) puis réessaie.
      */
-    public function markPaid(Request $request, string $id)
+    public function markPaid(Request $request, string $id, EscrowService $escrow)
     {
         $invoice = Invoice::findOrFail($id);
         $user = $request->user();
@@ -56,8 +63,24 @@ class InvoiceController extends Controller
             return response()->json(['message' => 'Cette facture ne peut pas être payée'], 422);
         }
 
-        $invoice->update(['status' => 'paid']);
+        try {
+            $result = DB::transaction(function () use ($invoice, $user, $escrow) {
+                $hold = Hold::whereHas('wallet', fn ($q) => $q->where('user_id', $user->id))
+                    ->where('reason', 'invoice:' . $invoice->id)
+                    ->where('status', 'held')
+                    ->lockForUpdate()
+                    ->first();
 
-        return new InvoiceResource($invoice);
+                $hold ??= $escrow->placeHold($user->id, (float) $invoice->amount, 'invoice:' . $invoice->id);
+                $payment = $escrow->captureHold($hold->id, $invoice->issuer_id, 'wallet');
+                $invoice->update(['status' => 'paid']);
+
+                return $payment;
+            });
+        } catch (\DomainException $e) {
+            return response()->json(['message' => $e->getMessage() . ' — rechargez votre portefeuille.'], 402);
+        }
+
+        return (new InvoiceResource($invoice->fresh()))->additional(['payment_id' => $result->id]);
     }
 }

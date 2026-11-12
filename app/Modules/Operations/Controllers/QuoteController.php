@@ -34,6 +34,15 @@ class QuoteController extends Controller
         $user = $request->user();
         $validated = $request->validated();
 
+        // Seul le technicien dont la proposition a été acceptée peut chiffrer la demande.
+        $mandated = \App\Modules\Matching\Models\Proposal::where('request_id', $validated['request_id'])
+            ->where('technician_id', $user->id)
+            ->where('status', 'accepted')
+            ->exists();
+        if (!$mandated) {
+            return response()->json(['message' => 'Vous n\'êtes pas mandaté sur cette demande.'], 403);
+        }
+
         $quote = Quote::create([
             'request_id'   => $validated['request_id'],
             'issuer_id'    => $user->id,
@@ -76,6 +85,8 @@ class QuoteController extends Controller
         // Broadcast to client
         $clientId = $quote->load('request')->request->client_id;
         event(new \App\Events\QuoteSubmitted($quote, $clientId));
+        app(\App\Modules\Notification\Services\NotificationService::class)
+            ->notifyQuoteReceived($clientId, $quote->id, $quote->request_id);
 
         return new QuoteResource($quote);
     }
@@ -114,12 +125,32 @@ class QuoteController extends Controller
 
         event(new \App\Events\InvoiceCreated($invoice, $user->id));
 
+        // Séquestre : les fonds sont réservés dès l'acceptation si le solde le permet ;
+        // sinon le client règle (ou recharge) avant/après l'intervention.
+        $escrow = 'insufficient_funds';
+        try {
+            app(\App\Modules\Finance\Services\EscrowService::class)
+                ->placeHold($user->id, (float) $invoice->amount, 'invoice:' . $invoice->id);
+            $escrow = 'held';
+        } catch (\DomainException $e) {
+            // solde insuffisant : facture laissée impayée
+        }
+
+        app(\App\Modules\Notification\Services\NotificationService::class)->send(
+            $quote->issuer_id,
+            'Devis accepté',
+            'Votre devis a été accepté par le client.',
+            ['type' => 'quote_accepted', 'quote_id' => $quote->id, 'request_id' => $quote->request_id],
+            ['in_app', 'push']
+        );
+
         return response()->json([
             'status' => 'success',
             'message' => 'Devis accepté, facture générée',
             'data' => [
                 'quote' => new QuoteResource($quote),
                 'invoice_id' => $invoice->id,
+                'escrow' => $escrow,
             ]
         ]);
     }

@@ -84,6 +84,7 @@ class WalletController extends Controller
                 'payment_id' => $payment->id,
                 'external_ref' => $result['external_ref'],
                 'status' => 'pending',
+                'instructions' => $result['raw']['instructions'] ?? null,
             ]);
         });
     }
