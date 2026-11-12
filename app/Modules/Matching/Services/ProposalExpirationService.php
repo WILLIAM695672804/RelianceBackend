@@ -32,9 +32,12 @@ class ProposalExpirationService
 
             // Notify the client
             $request = $proposal->request;
-            if ($request && $request->user_id) {
+            if ($request && $request->client_id) {
+                if ($request->status === 'quoted') {
+                    $request->update(['status' => 'analyzed']);
+                }
                 $this->notifications->notifyProposalExpired(
-                    $request->user_id,
+                    $request->client_id,
                     $request->id
                 );
             }

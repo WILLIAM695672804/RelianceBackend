@@ -17,6 +17,20 @@ Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
 
+    // Renvoi public du lien de vérification (compte non vérifié, donc sans session) — réponse neutre
+    Route::post('/email/resend', function (\Illuminate\Http\Request $request) {
+        $request->validate(['email' => 'required|email']);
+        $user = \App\Modules\Auth\Models\User::where('email', $request->email)->first();
+        if ($user && !$user->hasVerifiedEmail()) {
+            try {
+                $user->sendEmailVerificationNotification();
+            } catch (\Throwable $e) {
+                \Log::warning('Renvoi du lien de vérification échoué', ['erreur' => $e->getMessage()]);
+            }
+        }
+        return response()->json(['message' => 'Si le compte existe et n\'est pas vérifié, un nouveau lien a été envoyé.']);
+    })->middleware('throttle:5,1');
+
     // Password Reset
     Route::post('/forgot-password', [\App\Modules\Auth\Controllers\PasswordResetController::class, 'forgotPassword']);
     Route::post('/reset-password', [\App\Modules\Auth\Controllers\PasswordResetController::class, 'resetPassword']);
@@ -112,7 +126,13 @@ Route::prefix('auth')->group(function () {
                 ]);
             }
 
-            auth()->user()->sendEmailVerificationNotification();
+            try {
+                auth()->user()->sendEmailVerificationNotification();
+            } catch (\Throwable $e) {
+                \Log::warning('Renvoi du lien de vérification échoué', ['erreur' => $e->getMessage()]);
+
+                return response()->json(['message' => 'Envoi momentanément impossible, réessayez dans un instant.'], 503);
+            }
 
             return response()->json([
                 'message' => 'Email de vérification renvoyé'

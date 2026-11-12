@@ -8,7 +8,7 @@ class Review extends Model
 {
     protected $keyType = 'string';
     public $incrementing = false;
-    protected $fillable = ['reviewer_id', 'target_id', 'request_id', 'rating', 'comment'];
+    protected $fillable = ['reviewer_id', 'target_id', 'request_id', 'rating', 'comment', 'stage'];
     protected $casts = ['rating' => 'integer'];
 
     protected static function booted()

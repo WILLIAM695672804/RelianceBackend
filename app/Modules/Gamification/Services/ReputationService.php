@@ -12,6 +12,7 @@ class ReputationService
         $target = $review->target;
 
         $stats = Review::where('target_id', $target->id)
+            ->where('stage', 'post') // la réputation ne repose que sur les prestations réalisées
             ->selectRaw('COUNT(*) as total, AVG(rating) as avg_rating')
             ->first();
 

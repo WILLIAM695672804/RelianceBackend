@@ -39,4 +39,17 @@ return [
         'hash_key' => env('NOTCHPAY_HASH_KEY'), // vérification de la signature des webhooks
     ],
 
+    // Notifications push de l'application mobile (Expo)
+    'expo_push' => [
+        'url' => env('EXPO_PUSH_URL', 'https://exp.host/--/api/v2/push/send'),
+    ],
+
+    // SMS : pilote `log` (défaut, aucun envoi) ou `http` (passerelle JSON à jeton Bearer)
+    'sms' => [
+        'driver' => env('SMS_DRIVER', 'log'),
+        'url' => env('SMS_API_URL'),
+        'key' => env('SMS_API_KEY'),
+        'sender' => env('SMS_SENDER', 'Reliance'),
+    ],
+
 ];

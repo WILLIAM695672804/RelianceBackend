@@ -39,6 +39,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Admin Matching Routes ────────────────────────────────
     Route::middleware('role:admin')->group(function () {
+        Route::get('/admin/map', [AdminMatchingController::class, 'map']);
         Route::get('/admin/requests', [AdminMatchingController::class, 'index']);
         Route::post('/admin/requests/{id}/assign', [AdminMatchingController::class, 'assign']);
     });

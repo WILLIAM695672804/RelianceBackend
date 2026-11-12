@@ -123,9 +123,12 @@ class MatchingService
             ->where('is_active', true)
             ->with(['skills', 'badges'])
             ->whereHas('locations', function ($q) use ($lng, $lat, $radiusMeters) {
+                // Zone d'intervention : le client doit se trouver dans le rayon déclaré par le
+                // technicien (50 km par défaut), borné par le rayon maximal de la plateforme.
                 $q->where('is_default', true)
                   ->whereRaw(
-                      'ST_DWithin(geom, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?)',
+                      'ST_DWithin(geom, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography,
+                          LEAST(?::float, COALESCE(NULLIF(meta->>\'radius\', \'\')::float, 50) * 1000))',
                       [$lng, $lat, $radiusMeters]
                   );
             })
@@ -145,6 +148,17 @@ class MatchingService
 
         if ($skillId) {
             $query->whereHas('skills', fn($q) => $q->where('skills.id', $skillId));
+        }
+
+        // Référencement conditionné au paiement de l'abonnement (cahier des charges §4.1).
+        if (config('reliance.require_subscription')) {
+            $query->whereExists(function ($q) {
+                $q->select(DB::raw(1))
+                  ->from('subscriptions')
+                  ->whereColumn('subscriptions.subscriber_id', 'users.id')
+                  ->whereIn('subscriptions.status', ['active', 'trial'])
+                  ->where(fn ($d) => $d->whereNull('subscriptions.end_date')->orWhere('subscriptions.end_date', '>=', now()->toDateString()));
+            });
         }
 
         return $query->get();

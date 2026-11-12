@@ -42,6 +42,23 @@ class JobController extends Controller
 
         $user = $request->user();
 
+        $mandated = \App\Modules\Matching\Models\Proposal::where('request_id', $request->request_id)
+            ->where('technician_id', $user->id)
+            ->where('status', 'accepted')
+            ->exists();
+        if (!$mandated) {
+            return response()->json(['message' => 'Vous n\'êtes pas mandaté sur cette demande.'], 403);
+        }
+
+        // Idempotence : une seule intervention active par demande et par technicien.
+        $existing = TechnicianJob::where('request_id', $request->request_id)
+            ->where('technician_id', $user->id)
+            ->whereNotIn('status', ['cancelled'])
+            ->first();
+        if ($existing) {
+            return new JobResource($existing->load(['request', 'appointment']));
+        }
+
         $job = TechnicianJob::create([
             'request_id'     => $request->request_id,
             'technician_id'  => $user->id,
@@ -97,6 +114,12 @@ class JobController extends Controller
             $job->request?->update(['status' => 'completed']);
         } elseif ($validated['status'] === 'cancelled') {
             $job->request?->update(['status' => 'cancelled']);
+            $this->releaseInvoiceHolds($job);
+        }
+
+        if ($job->request?->client_id) {
+            app(\App\Modules\Notification\Services\NotificationService::class)
+                ->notifyJobStatus($job->request->client_id, $validated['status'], $job->request_id);
         }
 
         event(new \App\Events\JobStatusChanged($job->fresh()));
@@ -159,5 +182,24 @@ class JobController extends Controller
                 ],
             ],
         ]);
+    }
+
+    /**
+     * Annulation : les fonds mis sous séquestre pour les factures impayées de la demande
+     * sont restitués au client.
+     */
+    private function releaseInvoiceHolds(TechnicianJob $job): void
+    {
+        $invoiceIds = \App\Modules\Operations\Models\Invoice::whereHas('quote', fn ($q) => $q->where('request_id', $job->request_id))
+            ->where('status', 'unpaid')
+            ->pluck('id');
+
+        $escrow = app(\App\Modules\Finance\Services\EscrowService::class);
+        foreach ($invoiceIds as $invoiceId) {
+            \App\Modules\Finance\Models\Hold::where('reason', 'invoice:' . $invoiceId)
+                ->where('status', 'held')
+                ->get()
+                ->each(fn ($hold) => $escrow->releaseHold($hold->id));
+        }
     }
 }

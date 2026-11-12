@@ -61,10 +61,11 @@ class AuthModuleTest extends TestCase
     {
         $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
 
-        $user = User::create([
+        $user = User::forceCreate([
             'name' => 'Original Name',
             'email' => 'test_2fa@test.com',
-            'password' => bcrypt('password123')
+            'password' => bcrypt('password123'),
+            'email_verified_at' => now(),
         ]);
 
         // 1. Generation
@@ -168,10 +169,11 @@ class AuthModuleTest extends TestCase
     {
         $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
 
-        $user = User::create([
+        $user = User::forceCreate([
             'name' => 'Session User',
             'email' => 'session@test.com',
             'password' => bcrypt('password123'),
+            'email_verified_at' => now(),
         ]);
 
         // Origine déclarée dans SANCTUM_STATEFUL_DOMAINS (voir .env)
@@ -232,5 +234,36 @@ class AuthModuleTest extends TestCase
         $user = User::where('email', 'agence@test.com')->first();
         $this->assertEquals('TechAgence Douala', $user->meta['agency_name']);
         $this->assertEquals('Douala, Bonapriso', $user->meta['address']);
+    }
+
+    public function test_login_is_refused_until_email_is_verified()
+    {
+        $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
+
+        User::create([
+            'name' => 'Non vérifié',
+            'email' => 'unverified@test.com',
+            'password' => bcrypt('password123'),
+        ]);
+
+        $this->postJson('/api/v1/auth/login', ['email' => 'unverified@test.com', 'password' => 'password123'])
+            ->assertStatus(403)
+            ->assertJson(['requires_email_verification' => true]);
+    }
+
+    public function test_registration_sends_the_verification_email()
+    {
+        $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
+        \Illuminate\Support\Facades\Notification::fake();
+
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Nouveau', 'email' => 'nouveau@test.com',
+            'password' => 'password123', 'password_confirmation' => 'password123', 'role' => 'client',
+        ])->assertStatus(201);
+
+        \Illuminate\Support\Facades\Notification::assertSentTo(
+            User::where('email', 'nouveau@test.com')->first(),
+            \App\Notifications\VerifyEmailNotification::class
+        );
     }
 }

@@ -59,6 +59,14 @@ class AuthController extends Controller
 
         event(new \App\Events\Admin\NewUserRegistered($user));
 
+        // Lien de vérification envoyé dès la création du compte ; un échec SMTP ne doit pas
+        // faire échouer l'inscription (renvoi possible via /auth/email/verification-notification).
+        try {
+            $user->sendEmailVerificationNotification();
+        } catch (\Throwable $e) {
+            Log::warning('Envoi du lien de vérification échoué', ['user_id' => $user->id, 'erreur' => $e->getMessage()]);
+        }
+
         return response()->json([
             'message' => 'Inscription réussie',
             'user'    => $user,
@@ -85,6 +93,15 @@ class AuthController extends Controller
         if (!$user->is_active) {
             return response()->json([
                 'message' => 'Compte désactivé'
+            ], 403);
+        }
+
+        // La connexion exige une adresse e-mail vérifiée (le lien est envoyé à l'inscription).
+        if (!$user->hasVerifiedEmail()) {
+            return response()->json([
+                'message' => 'Adresse e-mail non vérifiée : cliquez sur le lien reçu par e-mail.',
+                'requires_email_verification' => true,
+                'email' => $user->email,
             ], 403);
         }
 

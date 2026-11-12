@@ -5,6 +5,7 @@ namespace App\Modules\Matching\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Matching\Models\ClientRequest;
 use App\Modules\Matching\Models\Proposal;
+use App\Modules\Notification\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -24,6 +25,23 @@ class ProposalController extends Controller
         $clientRequest = ClientRequest::where('client_id', auth()->id())
             ->findOrFail($requestId);
 
+        if (in_array($clientRequest->status, ['assigned', 'completed', 'cancelled'], true)) {
+            return response()->json(['message' => 'Cette demande n\'accepte plus de proposition.'], 422);
+        }
+
+        $technician = \App\Modules\Auth\Models\User::role('technicien')
+            ->where('verified', true)->where('is_active', true)
+            ->find($request->technician_id);
+        if (!$technician) {
+            return response()->json(['message' => 'Technicien indisponible ou non référencé.'], 422);
+        }
+
+        // Une proposition en attente par technicien et par demande.
+        Proposal::where('request_id', $clientRequest->id)
+            ->where('technician_id', $technician->id)
+            ->where('status', 'pending')
+            ->update(['status' => 'rejected']);
+
         $proposal = Proposal::create([
             'request_id'    => $clientRequest->id,
             'technician_id' => $request->technician_id,
@@ -38,6 +56,8 @@ class ProposalController extends Controller
 
         // Broadcast real-time notification to technician
         event(new \App\Events\ProposalCreated($proposal));
+
+        app(NotificationService::class)->notifyProposal($technician->id, $clientRequest->title, $proposal->id);
 
         return response()->json([
             'status'  => 'success',
@@ -88,6 +108,12 @@ class ProposalController extends Controller
 
         event(new \App\Events\ProposalAccepted($proposal));
 
+        app(NotificationService::class)->notifyProposalAccepted(
+            $proposal->request->client_id,
+            $request->user()->name,
+            $proposal->request_id
+        );
+
         return response()->json([
             'status'  => 'success',
             'message' => 'Proposition acceptée',
@@ -108,6 +134,14 @@ class ProposalController extends Controller
         $proposal->save();
 
         event(new \App\Events\ProposalRefused($proposal));
+
+        // Le client est invité à choisir un autre professionnel.
+        $proposal->request->update(['status' => 'analyzed']);
+        app(NotificationService::class)->notifyProposalRefused(
+            $proposal->request->client_id,
+            $request->user()->name,
+            $proposal->request_id
+        );
 
         return response()->json([
             'status'  => 'success',

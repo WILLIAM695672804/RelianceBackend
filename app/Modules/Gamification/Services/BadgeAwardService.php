@@ -59,6 +59,7 @@ class BadgeAwardService
     private function checkSkillReviews(User $user, array $c): bool
     {
         $count = Review::where('target_id', $user->id)
+            ->where('stage', 'post')
             ->where('rating', '>=', $c['min_rating'] ?? 5)
             ->whereHas('request', function ($q) use ($c) {
                 $q->whereHas('category', function ($sq) use ($c) {

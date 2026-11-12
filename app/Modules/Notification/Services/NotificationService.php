@@ -36,17 +36,49 @@ class NotificationService
             $this->sendEmail($userId, $title, $body);
         }
 
+        if (in_array('sms', $channels) && ($settings['sms'] ?? true)) {
+            $this->sendSms($userId, $title, $body);
+        }
+
         return $notification;
     }
 
     /**
-     * Send push notification via FCM (placeholder — integrate real FCM).
+     * Notification push : jetons Expo (application mobile) via l'API Expo Push ;
+     * les jetons FCM/APNs natifs sont journalisés tant qu'aucun fournisseur direct n'est configuré.
      */
     protected function sendPush(string $userId, string $title, string $body, array $payload): void
     {
-        $tokens = PushToken::where('user_id', $userId)->get();
-        // TODO: Intégrer FCM via kreait/firebase-php
-        // Pour chaque token, envoyer via FCM HTTP v1 API
+        $tokens = PushToken::where('user_id', $userId)->pluck('token');
+
+        $messages = $tokens
+            ->filter(fn ($t) => str_starts_with($t, 'ExponentPushToken[') || str_starts_with($t, 'ExpoPushToken['))
+            ->map(fn ($t) => ['to' => $t, 'title' => $title, 'body' => $body, 'data' => $payload, 'sound' => 'default'])
+            ->values()
+            ->all();
+
+        if ($messages === []) {
+            return;
+        }
+
+        try {
+            \Illuminate\Support\Facades\Http::timeout(5)
+                ->acceptJson()
+                ->post(config('services.expo_push.url', 'https://exp.host/--/api/v2/push/send'), $messages);
+        } catch (\Throwable $e) {
+            \Log::warning("Notification push échouée pour l'utilisateur {$userId} : " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Notification SMS via {@see SmsService} (no-op silencieux sans numéro).
+     */
+    protected function sendSms(string $userId, string $title, string $body): void
+    {
+        $user = User::find($userId);
+        if ($user && $user->phone) {
+            app(SmsService::class)->send($user->phone, "{$title} — {$body}");
+        }
     }
 
     /**
@@ -76,7 +108,7 @@ class NotificationService
             'Nouvelle proposition de mission',
             "Vous avez reçu une proposition pour : {$requestTitle}",
             ['type' => 'proposal', 'proposal_id' => $proposalId],
-            ['in_app', 'push', 'email']
+            ['in_app', 'push', 'email', 'sms']
         );
     }
 
@@ -104,6 +136,55 @@ class NotificationService
             'Proposition expirée',
             "Le délai d'acceptation pour votre demande a expiré. Veuillez choisir un autre professionnel.",
             ['type' => 'proposal_expired', 'request_id' => $requestId],
+            ['in_app', 'push']
+        );
+    }
+
+    /**
+     * Notify client that a technician refused the proposal.
+     */
+    public function notifyProposalRefused(string $clientId, string $technicianName, string $requestId): Notification
+    {
+        return $this->send(
+            $clientId,
+            'Proposition refusée',
+            "{$technicianName} ne peut pas intervenir. Veuillez choisir un autre professionnel.",
+            ['type' => 'proposal_refused', 'request_id' => $requestId],
+            ['in_app', 'push', 'email']
+        );
+    }
+
+    /**
+     * Notify client that a quote was sent to them.
+     */
+    public function notifyQuoteReceived(string $clientId, string $quoteId, string $requestId): Notification
+    {
+        return $this->send(
+            $clientId,
+            'Nouveau devis reçu',
+            'Le technicien vous a envoyé un devis à valider.',
+            ['type' => 'quote_received', 'quote_id' => $quoteId, 'request_id' => $requestId],
+            ['in_app', 'push', 'email']
+        );
+    }
+
+    /**
+     * Notify client of a job progress change.
+     */
+    public function notifyJobStatus(string $clientId, string $status, string $requestId): Notification
+    {
+        $labels = [
+            'en_route' => 'Le technicien est en route.',
+            'in_progress' => "L'intervention a démarré.",
+            'completed' => "L'intervention est terminée : réglez la facture et laissez votre avis.",
+            'cancelled' => "L'intervention a été annulée.",
+        ];
+
+        return $this->send(
+            $clientId,
+            'Suivi de votre intervention',
+            $labels[$status] ?? "Statut de l'intervention : {$status}.",
+            ['type' => 'job_status', 'status' => $status, 'request_id' => $requestId],
             ['in_app', 'push']
         );
     }

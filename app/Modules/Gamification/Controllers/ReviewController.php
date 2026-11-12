@@ -17,11 +17,17 @@ class ReviewController extends Controller
             'request_id' => 'required|uuid|exists:client_requests,id',
             'rating'     => 'required|integer|min:1|max:5',
             'comment'    => 'nullable|string|max:2000',
+            'stage'      => 'nullable|in:pre,post',
         ]);
+
+        // « pre » : avant l'intervention (technicien retenu, mission en cours) ;
+        // « post » : une fois la mission terminée (défaut, compatible avec les clients existants).
+        $stage = $request->input('stage', 'post');
+        $allowedStatuses = $stage === 'pre' ? ['assigned', 'in_progress'] : ['completed'];
 
         $clientRequest = ClientRequest::where('id', $request->request_id)
             ->where('client_id', auth()->id())
-            ->where('status', 'completed')
+            ->whereIn('status', $allowedStatuses)
             ->firstOrFail();
 
         $proposal = Proposal::where('request_id', $clientRequest->id)
@@ -30,10 +36,11 @@ class ReviewController extends Controller
 
         $existing = Review::where('reviewer_id', auth()->id())
             ->where('request_id', $clientRequest->id)
+            ->where('stage', $stage)
             ->first();
 
         if ($existing) {
-            return response()->json(['message' => 'Vous avez deja laisse un avis pour cette mission.'], 409);
+            return response()->json(['message' => 'Vous avez deja laisse un avis pour cette etape de la mission.'], 409);
         }
 
         $review = Review::create([
@@ -42,6 +49,7 @@ class ReviewController extends Controller
             'request_id'  => $clientRequest->id,
             'rating'      => $request->rating,
             'comment'     => $request->comment,
+            'stage'       => $stage,
         ]);
 
         $reputationService->recalculateAfterReview($review);
