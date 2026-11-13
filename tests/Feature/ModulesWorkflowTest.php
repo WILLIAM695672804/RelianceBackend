@@ -263,12 +263,14 @@ class ModulesWorkflowTest extends TestCase
         $this->assertSame(1, \App\Modules\Notification\Models\PushToken::where('user_id', $client->id)->count());
     }
 
-    public function test_le_profil_technicien_accepte_un_envoi_multipart_avec_avatar(): void
+    public function test_le_profil_technicien_accepte_un_envoi_multipart_avec_avatar_par_method_spoofing(): void
     {
         \Illuminate\Support\Facades\Storage::fake('public');
         $tech = $this->makeTechnician();
 
+        // PHP n'analyse pas un corps multipart en PUT : le frontend poste avec `_method=PUT` (method spoofing).
         $this->actingAs($tech, 'sanctum')->post('/api/v1/technician/profile', [
+            '_method' => 'PUT',
             'name' => 'Paul Technicien',
             'avatar' => \Illuminate\Http\UploadedFile::fake()->image('avatar.jpg', 200, 200),
         ], ['Accept' => 'application/json'])->assertSuccessful();
@@ -280,6 +282,6 @@ class ModulesWorkflowTest extends TestCase
     public function test_le_profil_technicien_multipart_est_interdit_a_un_client(): void
     {
         $this->actingAs($this->makeUser('client'), 'sanctum')
-            ->post('/api/v1/technician/profile', ['name' => 'X'], ['Accept' => 'application/json'])->assertForbidden();
+            ->post('/api/v1/technician/profile', ['_method' => 'PUT', 'name' => 'X'], ['Accept' => 'application/json'])->assertForbidden();
     }
 }
