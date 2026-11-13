@@ -58,7 +58,7 @@ class MatchingFlowTest extends TestCase
         ]);
 
         // 2. Technicien vérifié/actif, avec la compétence et une position géographique réelle
-        $technician = User::create([
+        $technician = User::forceCreate([
             'name' => 'Technicien Test',
             'email' => 'tech_matching@test.com',
             'password' => bcrypt('password123'),

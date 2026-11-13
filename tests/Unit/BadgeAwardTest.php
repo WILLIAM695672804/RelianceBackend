@@ -22,7 +22,7 @@ class BadgeAwardTest extends TestCase
 
     public function test_awards_top_performer_badge(): void
     {
-        $tech = User::create([
+        $tech = User::forceCreate([
             'name' => 'TopTech', 'email' => 't-' . Str::uuid() . '@test.com', 'password' => bcrypt('pwd'),
             'rating' => 4.8, 'num_reviews' => 25,
         ]);
@@ -43,7 +43,7 @@ class BadgeAwardTest extends TestCase
 
     public function test_does_not_award_badge_twice(): void
     {
-        $tech = User::create([
+        $tech = User::forceCreate([
             'name' => 'TopTech2', 'email' => 't2-' . Str::uuid() . '@test.com', 'password' => bcrypt('pwd'),
             'rating' => 4.8, 'num_reviews' => 25,
         ]);

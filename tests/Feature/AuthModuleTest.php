@@ -266,4 +266,22 @@ class AuthModuleTest extends TestCase
             \App\Notifications\VerifyEmailNotification::class
         );
     }
+
+    public function test_les_attributs_d_etat_ne_sont_pas_assignables_en_masse()
+    {
+        $user = new User([
+            'name' => 'Intrus',
+            'is_active' => true,
+            'verified' => true,
+            'rating' => 5,
+            'num_reviews' => 999,
+            'two_factor_enabled' => false,
+            'two_factor_secret' => 'connu',
+        ]);
+
+        $this->assertSame('Intrus', $user->name);
+        foreach (['is_active', 'verified', 'rating', 'num_reviews', 'two_factor_enabled', 'two_factor_secret'] as $attribut) {
+            $this->assertArrayNotHasKey($attribut, $user->getAttributes(), "{$attribut} ne doit pas être assignable en masse");
+        }
+    }
 }

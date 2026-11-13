@@ -27,19 +27,14 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $keyType = 'string';
     public $incrementing = false;
 
+    // Les attributs d'état (is_active, verified, 2FA, réputation) sont exclus de l'assignation de masse :
+    // ils ne s'écrivent que par forceFill() ou affectation explicite, jamais depuis une requête.
     protected $fillable = [
         'name',
         'email',
         'phone',
         'password',
-        'is_active',
-        'two_factor_enabled',
-        'two_factor_secret',
-        'two_factor_recovery_codes',
         'avatar_url',
-        'rating',
-        'num_reviews',
-        'verified',
         'last_login',
         'meta',
     ];
