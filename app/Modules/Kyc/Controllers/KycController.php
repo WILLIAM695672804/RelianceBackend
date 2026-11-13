@@ -5,6 +5,7 @@ namespace App\Modules\Kyc\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Kyc\Models\KycDocument;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class KycController extends Controller
 {
@@ -12,7 +13,7 @@ class KycController extends Controller
     {
         $docs = KycDocument::where('user_id', auth()->id())->get();
         $docs->transform(function ($doc) {
-            $doc->url = asset('storage/' . $doc->file_path);
+            $doc->url = $doc->temporaryUrl();
             return $doc;
         });
         return response()->json($docs);
@@ -25,7 +26,7 @@ class KycController extends Controller
             'document' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
 
-        $path = $request->file('document')->store('kyc', 'public');
+        $path = $request->file('document')->store('kyc', 'local');
 
         $doc = KycDocument::create([
             'user_id' => auth()->id(),
@@ -40,10 +41,33 @@ class KycController extends Controller
                 'id' => $doc->id,
                 'type' => $doc->type,
                 'status' => $doc->status,
-                'url' => asset('storage/' . $doc->file_path)
+                'url' => $doc->temporaryUrl()
             ],
         ]);
     }
+    /**
+     * GET /v1/auth/kyc/documents/{id}/fichier — fichier servi sur présentation d'une URL temporaire signée.
+     */
+    public function file(Request $request, string $id)
+    {
+        $expires = (int) $request->query('expires');
+        $signature = (string) $request->query('signature');
+
+        if ($expires < now()->getTimestamp() || !hash_equals(KycDocument::signature($id, $expires), $signature)) {
+            abort(403, 'Lien expiré ou invalide.');
+        }
+
+        $doc = KycDocument::findOrFail($id);
+        if (!Storage::disk('local')->exists($doc->file_path)) {
+            abort(404);
+        }
+
+        return Storage::disk('local')->response($doc->file_path, null, [
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     public function adminIndex(Request $request)
     {
         $query = KycDocument::with('user');
@@ -67,7 +91,7 @@ class KycController extends Controller
         $docs = $query->orderBy('created_at', 'desc')->paginate(20);
 
         $docs->getCollection()->transform(function ($doc) {
-            $doc->url = asset('storage/' . $doc->file_path);
+            $doc->url = $doc->temporaryUrl();
             return $doc;
         });
 

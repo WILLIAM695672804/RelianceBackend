@@ -173,6 +173,10 @@ Route::prefix('auth')->group(function () {
         ]);
     })->name('verification.verify')->middleware('signed');
 
+    // Pièces KYC : servies depuis le disque privé sur URL temporaire signée (balise <img> sans en-tête Authorization).
+    Route::get('/kyc/documents/{id}/fichier', [\App\Modules\Kyc\Controllers\KycController::class, 'file'])
+        ->name('kyc.fichier')->middleware('throttle:60,1');
+
     Route::middleware(['auth:sanctum', 'kyc'])->group(function () {
         // routes sensibles dependantes du KYC
     });
