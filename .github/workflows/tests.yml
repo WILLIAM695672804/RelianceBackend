@@ -1,0 +1,77 @@
+name: Tests backend
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  phpunit:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: reliance_user
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: reliance_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U reliance_user -d reliance_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: reliance_test   # le garde-fou de TestCase exige le suffixe _test
+      DB_USERNAME: reliance_user
+      DB_PASSWORD: secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pgsql, pdo_pgsql, mbstring, intl
+          coverage: pcov
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: cp .env.example .env && php artisan key:generate
+      - name: Tests + seuil de couverture (lignes)
+        run: php artisan test --coverage --min=70
+
+  mutation-finance:
+    # Les tests de mutation vérifient que les assertions détectent réellement une régression
+    # sur le module Finance (paiement, séquestre, abonnement). Non bloquant tant que le score
+    # de référence n'est pas établi.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    needs: phpunit
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: reliance_user
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: reliance_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U reliance_user -d reliance_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: reliance_test
+      DB_USERNAME: reliance_user
+      DB_PASSWORD: secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pgsql, pdo_pgsql, mbstring, intl
+          coverage: pcov
+          tools: infection
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: cp .env.example .env && php artisan key:generate
+      - run: infection --threads=2 --min-msi=60 --min-covered-msi=70 --no-progress
