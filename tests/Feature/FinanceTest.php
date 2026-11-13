@@ -260,6 +260,20 @@ class FinanceTest extends TestCase
         $this->postJson('/api/v1/webhooks/notchpay', [])->assertStatus(400);
     }
 
+    public function test_webhook_sans_cle_de_hachage_est_refuse_en_production(): void
+    {
+        config(['services.notchpay.hash_key' => null]);
+        $this->app['env'] = 'production';
+        $payer = $this->makeUser('client');
+        $this->fund($payer, 0);
+        $this->pendingPayment($payer, 'momo', 4000, 'np-ouvert');
+        Http::fake(['*' => Http::response(['transaction' => ['status' => 'complete']])]);
+
+        $this->postJson('/api/v1/webhooks/notchpay', ['data' => ['reference' => 'np-ouvert']])
+            ->assertStatus(503);
+        $this->assertEqualsWithDelta(0, $this->balanceOf($payer), 0.01);
+    }
+
     // ── Recharge ───────────────────────────────────────────
 
     public function test_recharge_virement_renvoie_des_instructions_et_un_paiement_en_attente(): void

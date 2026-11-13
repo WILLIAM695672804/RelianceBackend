@@ -26,15 +26,25 @@ class WebhookController extends Controller
      */
     public function notchpay(Request $request)
     {
-        Log::info('NotchPay Webhook received', $request->all());
+        // Seules des métadonnées sont journalisées : la charge utile contient des données de paiement.
+        Log::info('NotchPay webhook reçu', [
+            'reference' => $request->input('data.reference') ?? $request->input('reference'),
+            'event' => $request->input('event'),
+            'ip' => $request->ip(),
+        ]);
 
-        // Vérification de la signature HMAC (si une clé de hachage est configurée).
+        // Vérification de la signature HMAC. Échec fermé hors développement : sans clé de hachage,
+        // n'importe qui pourrait déclencher le rapprochement d'un paiement.
         $hashKey = config('services.notchpay.hash_key');
+        if (!$hashKey && !app()->environment('local', 'testing')) {
+            Log::critical('NotchPay webhook: NOTCHPAY_HASH_KEY absente, callback refusé');
+            return response()->json(['message' => 'Webhook non configuré'], 503);
+        }
         if ($hashKey) {
             $expected = hash_hmac('sha256', $request->getContent(), $hashKey);
             $provided = $request->header('x-notch-signature', '');
             if (!hash_equals($expected, (string) $provided)) {
-                Log::warning('NotchPay webhook: signature invalide');
+                Log::warning('NotchPay webhook: signature invalide', ['ip' => $request->ip()]);
                 return response()->json(['message' => 'Signature invalide'], 401);
             }
         }
