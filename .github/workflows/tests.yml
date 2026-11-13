@@ -33,10 +33,13 @@ jobs:
           php-version: '8.3'
           extensions: pgsql, pdo_pgsql, mbstring, intl
           coverage: pcov
+      # .env doit exister avant l'installation : package:discover démarre l'application,
+      # et la déclaration des canaux instancie le client Pusher, qui exige des clés.
+      - run: cp .env.example .env
       - run: composer install --no-interaction --prefer-dist --no-progress
       - name: Audit de sécurité des dépendances (avis résiduels documentés dans composer.json)
         run: composer audit --no-interaction
-      - run: cp .env.example .env && php artisan key:generate
+      - run: php artisan key:generate
       - name: Tests + seuil de couverture (lignes)
         run: php artisan test --coverage --min=70
 
@@ -74,6 +77,9 @@ jobs:
           extensions: pgsql, pdo_pgsql, mbstring, intl
           coverage: pcov
           tools: infection
+      # .env doit exister avant l'installation : package:discover démarre l'application,
+      # et la déclaration des canaux instancie le client Pusher, qui exige des clés.
+      - run: cp .env.example .env
       - run: composer install --no-interaction --prefer-dist --no-progress
-      - run: cp .env.example .env && php artisan key:generate
+      - run: php artisan key:generate
       - run: infection --threads=2 --min-msi=60 --min-covered-msi=70 --no-progress
