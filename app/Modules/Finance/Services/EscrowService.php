@@ -59,6 +59,8 @@ class EscrowService
                     ? $hold->amount * $fee->value
                     : $fee->value);
 
+            // Les frais ne peuvent jamais dépasser le montant capturé (net du bénéficiaire ≥ 0).
+            $fees = min((float) $fees, (float) $hold->amount);
             $netAmount = $hold->amount - $fees;
 
             $payment = Payment::create([

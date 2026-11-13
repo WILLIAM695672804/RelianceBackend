@@ -5,6 +5,7 @@ namespace App\Modules\Finance\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Finance\Models\PlatformFee;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class PlatformFeeController extends Controller
 {
@@ -25,7 +26,9 @@ class PlatformFeeController extends Controller
         $request->validate([
             'name' => 'required|string|max:100',
             'fee_type' => 'required|in:percentage,fixed',
-            'value' => 'required|numeric|min:0',
+            // Un pourcentage est une fraction du montant (0,10 = 10 %) : au-delà de 1, les frais
+            // dépasseraient le montant et le net du bénéficiaire serait négatif.
+            'value' => ['required', 'numeric', 'min:0', Rule::when($request->input('fee_type') === 'percentage', ['max:1'])],
             'applies_to' => 'required|string|max:50',
             'meta' => 'nullable|array',
         ]);
@@ -50,7 +53,7 @@ class PlatformFeeController extends Controller
         $request->validate([
             'name' => 'sometimes|string|max:100',
             'fee_type' => 'sometimes|in:percentage,fixed',
-            'value' => 'sometimes|numeric|min:0',
+            'value' => ['sometimes', 'numeric', 'min:0', Rule::when($request->input('fee_type', $fee->fee_type) === 'percentage', ['max:1'])],
             'applies_to' => 'sometimes|string|max:50',
             'meta' => 'nullable|array',
         ]);
