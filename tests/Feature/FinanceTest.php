@@ -319,4 +319,53 @@ class FinanceTest extends TestCase
         $this->actingAs($this->makeUser('technicien'), 'sanctum')->postJson('/api/v1/admin/subscriptions/plans', $payload)->assertForbidden();
         $this->actingAs($this->makeUser('admin'), 'sanctum')->postJson('/api/v1/admin/subscriptions/plans', $payload)->assertStatus(201);
     }
+
+    // ── Frais de plateforme ────────────────────────────────
+
+    public function test_un_pourcentage_de_frais_doit_etre_une_fraction(): void
+    {
+        $admin = $this->actingAs($this->makeUser('admin'), 'sanctum');
+
+        $admin->postJson('/api/v1/admin/fees', ['name' => 'Commission', 'fee_type' => 'percentage', 'value' => 10, 'applies_to' => 'job'])->assertStatus(422);
+        $admin->postJson('/api/v1/admin/fees', ['name' => 'Commission', 'fee_type' => 'percentage', 'value' => 0.10, 'applies_to' => 'job'])->assertStatus(201);
+        $admin->postJson('/api/v1/admin/fees', ['name' => 'Forfait', 'fee_type' => 'fixed', 'value' => 500, 'applies_to' => 'job'])->assertStatus(201);
+        $this->assertSame(2, PlatformFee::count());
+    }
+
+    public function test_la_modification_d_un_frais_respecte_aussi_la_borne(): void
+    {
+        $fee = PlatformFee::create(['name' => 'Commission', 'fee_type' => 'percentage', 'value' => 0.1, 'applies_to' => 'job', 'active' => true]);
+        $admin = $this->actingAs($this->makeUser('admin'), 'sanctum');
+
+        $admin->putJson("/api/v1/admin/fees/{$fee->id}", ['value' => 5])->assertStatus(422);
+        $admin->putJson("/api/v1/admin/fees/{$fee->id}", ['value' => 0.2])->assertOk();
+        $admin->putJson("/api/v1/admin/fees/{$fee->id}", ['fee_type' => 'fixed', 'value' => 5])->assertOk();
+    }
+
+    public function test_les_frais_ne_rendent_jamais_le_net_du_beneficiaire_negatif(): void
+    {
+        $client = $this->makeUser('client');
+        $tech = $this->makeUser('technicien');
+        $this->fund($client, 10000);
+        $this->fund($tech, 0);
+        PlatformFee::create(['name' => 'Forfait excessif', 'fee_type' => 'fixed', 'value' => 50000, 'applies_to' => 'job', 'active' => true]);
+        $escrow = app(EscrowService::class);
+        $hold = $escrow->placeHold($client->id, 10000, 'x');
+
+        $escrow->captureHold($hold->id, $tech->id, 'wallet');
+
+        $this->assertEqualsWithDelta(0, $this->balanceOf($tech), 0.01, 'Le technicien ne peut pas être débité par des frais.');
+        $this->assertEqualsWithDelta(0, $this->balanceOf($client), 0.01);
+    }
+
+    public function test_activation_et_desactivation_d_un_frais(): void
+    {
+        $fee = PlatformFee::create(['name' => 'Commission', 'fee_type' => 'percentage', 'value' => 0.1, 'applies_to' => 'job', 'active' => true]);
+        $admin = $this->actingAs($this->makeUser('admin'), 'sanctum');
+
+        $admin->patchJson("/api/v1/admin/fees/{$fee->id}/toggle")->assertOk();
+        $this->assertFalse((bool) $fee->fresh()->active);
+        $admin->patchJson("/api/v1/admin/fees/{$fee->id}/toggle")->assertOk();
+        $this->assertTrue((bool) $fee->fresh()->active);
+    }
 }
