@@ -11,6 +11,7 @@ use App\Modules\Social\Resources\MessageAttachmentResource;
 use App\Modules\Social\Resources\MessageResource;
 use App\Modules\Social\Services\ConversationService;
 use Illuminate\Http\Request;
+use App\Support\SignedFileUrl;
 use Illuminate\Support\Facades\Storage;
 
 class MessageController extends Controller
@@ -50,7 +51,7 @@ class MessageController extends Controller
         if ($request->hasFile('attachments')) {
             $storedAttachments = [];
             foreach ($request->file('attachments') as $file) {
-                $path = $file->store("conversations/{$conversationId}", 'public');
+                $path = $file->store("conversations/{$conversationId}", 'local');
                 $storedAttachments[] = [
                     'path' => $path,
                     'type' => $file->getMimeType(),
@@ -122,6 +123,26 @@ class MessageController extends Controller
         return MessageAttachmentResource::collection($attachments);
     }
 
+    /**
+     * GET /v1/attachments/{id}/fichier — pièce jointe servie sur présentation d'une URL temporaire signée.
+     */
+    public function file(Request $request, string $id)
+    {
+        if (!SignedFileUrl::isValid('piece-jointe', $id, $request->query('expires'), $request->query('signature'))) {
+            abort(403, 'Lien expiré ou invalide.');
+        }
+
+        $attachment = MessageAttachment::findOrFail($id);
+        if (!Storage::disk('local')->exists($attachment->file_path)) {
+            abort(404);
+        }
+
+        return Storage::disk('local')->response($attachment->file_path, $attachment->file_name, [
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     public function destroy(Request $request, string $conversationId, string $messageId)
     {
         $conversation = Conversation::findOrFail($conversationId);
@@ -136,8 +157,9 @@ class MessageController extends Controller
             return response()->json(['message' => 'Non autorise'], 403);
         }
 
-        foreach ($message->attachments as $attachment) {
-            Storage::disk('public')->delete($attachment->file_path);
+        // attachments() et non ->attachments : la colonne JSON homonyme masque la relation.
+        foreach ($message->attachments()->get() as $attachment) {
+            Storage::disk('local')->delete($attachment->file_path);
         }
 
         $message->delete();

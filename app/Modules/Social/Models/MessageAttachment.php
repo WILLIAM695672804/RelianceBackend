@@ -3,7 +3,7 @@
 namespace App\Modules\Social\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage;
+use App\Support\SignedFileUrl;
 use Illuminate\Support\Str;
 
 class MessageAttachment extends Model
@@ -20,6 +20,9 @@ class MessageAttachment extends Model
         'file_type',
         'file_size',
     ];
+
+    // Horodatage géré manuellement ($timestamps = false) : sans conversion, created_at serait relu comme chaîne.
+    protected $casts = ['created_at' => 'datetime'];
 
     protected $appends = ['url'];
 
@@ -40,8 +43,12 @@ class MessageAttachment extends Model
         return $this->belongsTo(Message::class);
     }
 
+    /**
+     * URL temporaire (une heure) : les pièces jointes d'une conversation privée sont stockées sur le
+     * disque privé et ne sont servies que sur signature, voir SignedFileUrl.
+     */
     public function getUrlAttribute(): string
     {
-        return Storage::disk('public')->url($this->file_path);
+        return SignedFileUrl::make('messagerie.piece-jointe', 'piece-jointe', $this->id, 60);
     }
 }

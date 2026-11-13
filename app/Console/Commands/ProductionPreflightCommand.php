@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Modules\Kyc\Models\KycDocument;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -109,12 +108,13 @@ class ProductionPreflightCommand extends Command
     private function verifierStockage(): void
     {
         try {
-            $exposees = KycDocument::query()->pluck('file_path')
-                ->filter(fn ($chemin) => Storage::disk('public')->exists($chemin))->count();
+            $exposees = collect(PrivatizeStorageCommand::MODELES)
+                ->sum(fn ($modele) => $modele::query()->pluck('file_path')
+                    ->filter(fn ($chemin) => Storage::disk('public')->exists($chemin))->count());
         } catch (\Throwable) {
             return; // table absente : signalé par les migrations en attente
         }
-        $this->exiger($exposees === 0, "{$exposees} pièce(s) KYC encore sur le disque public : exécuter `php artisan kyc:privatiser-stockage`.");
+        $this->exiger($exposees === 0, "{$exposees} fichier(s) confidentiel(s) (KYC, pièces jointes) encore sur le disque public : exécuter `php artisan stockage:privatiser`.");
     }
 
     /** @return string[] niveaux effectifs du canal par défaut (ou de chacun des canaux d'un « stack ») */

@@ -4,6 +4,7 @@ namespace App\Modules\Kyc\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Kyc\Models\KycDocument;
+use App\Support\SignedFileUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -50,10 +51,7 @@ class KycController extends Controller
      */
     public function file(Request $request, string $id)
     {
-        $expires = (int) $request->query('expires');
-        $signature = (string) $request->query('signature');
-
-        if ($expires < now()->getTimestamp() || !hash_equals(KycDocument::signature($id, $expires), $signature)) {
+        if (!SignedFileUrl::isValid('kyc', $id, $request->query('expires'), $request->query('signature'))) {
             abort(403, 'Lien expiré ou invalide.');
         }
 

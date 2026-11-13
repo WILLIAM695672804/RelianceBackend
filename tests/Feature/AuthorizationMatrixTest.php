@@ -22,6 +22,7 @@ class AuthorizationMatrixTest extends TestCase
         'POST api/v1/auth/email/resend',
         'GET api/v1/auth/email/verify/{id}/{hash}',
         'GET api/v1/auth/kyc/documents/{id}/fichier', // protégée par URL signée HMAC
+        'GET api/v1/attachments/{id}/fichier', // protégée par URL signée HMAC
         'POST api/v1/auth/forgot-password',
         'POST api/v1/auth/login',
         'POST api/v1/auth/register',

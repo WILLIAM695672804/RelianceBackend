@@ -86,7 +86,7 @@ class ProductionReadinessTest extends TestCase
         ]);
 
         $this->artisan('reliance:verifier-production')
-            ->expectsOutputToContain('kyc:privatiser-stockage')
+            ->expectsOutputToContain('stockage:privatiser')
             ->assertFailed();
     }
 

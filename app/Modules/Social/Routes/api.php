@@ -23,6 +23,10 @@ Route::get('/users/{userId}/following', [FollowController::class, 'following']);
 Route::get('/users/{userId}/follow-counts', [FollowController::class, 'counts']);
 
 // ── Routes authentifiees ────────────────────────────────────────
+// Pièces jointes de messagerie : servies depuis le disque privé sur URL temporaire signée.
+Route::get('/attachments/{id}/fichier', [MessageController::class, 'file'])
+    ->name('messagerie.piece-jointe')->middleware('throttle:120,1');
+
 Route::middleware('auth:sanctum')->group(function () {
 
     // ── Posts ───────────────────────────────────────────────────

@@ -20,7 +20,7 @@ Points bloquants vérifiés par `reliance:verifier-production` :
 `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL` et `FRONTEND_URL` en https, `LOG_LEVEL` ≠ `debug`,
 `SESSION_SECURE_COOKIE=true`, `SANCTUM_STATEFUL_DOMAINS` sans domaine de développement,
 `NOTCHPAY_PRIVATE_KEY` et `NOTCHPAY_HASH_KEY` renseignées, SMTP réel, PostGIS présente,
-aucune pièce KYC sur le disque public.
+aucun fichier confidentiel (KYC, pièce jointe) sur le disque public.
 
 ## 3. Procédure de déploiement
 
@@ -30,7 +30,7 @@ git fetch && git checkout <tag>
 composer install --no-dev --optimize-autoloader --no-interaction
 php artisan migrate --force
 php artisan db:seed --force                        # 1er déploiement : référentiels + administrateur (ADMIN_PASSWORD)
-php artisan kyc:privatiser-stockage                # idempotente ; reprise des pièces déposées avant le correctif
+php artisan stockage:privatiser                   # idempotente ; reprise des pièces KYC et pièces jointes publiques
 php artisan config:cache && php artisan route:cache && php artisan event:cache
 php artisan reliance:verifier-production           # code de sortie ≠ 0 : interrompre le déploiement
 sudo systemctl reload php8.3-fpm
@@ -103,7 +103,5 @@ dans les journaux), échec de connexion ou d'inscription.
   `composer.json`, `config.audit.ignore`, avec leur mesure d'atténuation). Seule une migration vers
   Laravel 12 les résout ; elle impose de remplacer `beyondcode/laravel-websockets` (abandonné,
   incompatible avec Laravel 11 et au-delà) par Laravel Reverb.
-- **Pièces jointes de messagerie** : stockées sur le disque public (`MessageAttachment`), donc
-  accessibles à quiconque obtient l'URL. Même traitement que le KYC à prévoir.
 - **Flux SSE** : un client doit demander un nouveau jeton (`POST /v1/proposals/stream-token`)
   avant chaque reconnexion ; aucun client actuel n'utilise le flux.
