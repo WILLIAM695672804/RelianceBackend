@@ -262,4 +262,24 @@ class ModulesWorkflowTest extends TestCase
         ])->assertSuccessful();
         $this->assertSame(1, \App\Modules\Notification\Models\PushToken::where('user_id', $client->id)->count());
     }
+
+    public function test_le_profil_technicien_accepte_un_envoi_multipart_avec_avatar(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $tech = $this->makeTechnician();
+
+        $this->actingAs($tech, 'sanctum')->post('/api/v1/technician/profile', [
+            'name' => 'Paul Technicien',
+            'avatar' => \Illuminate\Http\UploadedFile::fake()->image('avatar.jpg', 200, 200),
+        ], ['Accept' => 'application/json'])->assertSuccessful();
+
+        $this->assertSame('Paul Technicien', $tech->fresh()->name);
+        $this->assertNotEmpty($tech->fresh()->avatar_url);
+    }
+
+    public function test_le_profil_technicien_multipart_est_interdit_a_un_client(): void
+    {
+        $this->actingAs($this->makeUser('client'), 'sanctum')
+            ->post('/api/v1/technician/profile', ['name' => 'X'], ['Accept' => 'application/json'])->assertForbidden();
+    }
 }

@@ -16,6 +16,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/profile', [TechnicianProfileController::class, 'show']);
         Route::get('/stats', [TechnicianProfileController::class, 'stats']);
         Route::put('/profile', [TechnicianProfileController::class, 'updateProfile']);
+        // Envoi multipart (avatar) : PHP n'analyse pas le corps d'une requête PUT multipart.
+        Route::post('/profile', [TechnicianProfileController::class, 'updateProfile']);
         Route::put('/location', [TechnicianProfileController::class, 'updateLocation']);
         
         Route::get('/skills', [TechnicianSkillController::class, 'index']);
