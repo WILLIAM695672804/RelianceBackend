@@ -47,6 +47,8 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $hidden = [
         'password',
         'remember_token',
+        // Secret TOTP (chiffré) : ne doit jamais quitter le serveur dans une réponse JSON.
+        'two_factor_secret',
     ];
 
     protected $casts = [
