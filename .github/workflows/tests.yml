@@ -34,6 +34,8 @@ jobs:
           extensions: pgsql, pdo_pgsql, mbstring, intl
           coverage: pcov
       - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Audit de sécurité des dépendances (avis résiduels documentés dans composer.json)
+        run: composer audit --no-interaction
       - run: cp .env.example .env && php artisan key:generate
       - name: Tests + seuil de couverture (lignes)
         run: php artisan test --coverage --min=70
