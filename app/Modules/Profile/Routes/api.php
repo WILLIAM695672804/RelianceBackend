@@ -12,7 +12,7 @@ Route::get('/technicians', [\App\Modules\Profile\Controllers\TechnicianSearchCon
 Route::get('/technicians/{id}/profile', [TechnicianProfileController::class, 'show']);
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::prefix('technician')->group(function () {
+    Route::prefix('technician')->middleware('role:technicien|admin')->group(function () {
         Route::get('/profile', [TechnicianProfileController::class, 'show']);
         Route::get('/stats', [TechnicianProfileController::class, 'stats']);
         Route::put('/profile', [TechnicianProfileController::class, 'updateProfile']);

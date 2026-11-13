@@ -6,7 +6,7 @@ use App\Modules\Schedule\Controllers\TimeSlotController;
 use App\Modules\Schedule\Controllers\ScheduleExceptionController;
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::prefix('technician')->group(function () {
+    Route::prefix('technician')->middleware('role:technicien|admin')->group(function () {
         Route::get('/calendar', [ScheduleController::class, 'getCalendarData']);
         
         Route::post('/time-slots', [TimeSlotController::class, 'store']);

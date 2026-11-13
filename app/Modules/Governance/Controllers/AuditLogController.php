@@ -32,8 +32,11 @@ class AuditLogController extends Controller
         return AuditLogResource::collection($query->paginate(30));
     }
 
-    public function show(int $id)
+    public function show(string $id)
     {
+        // Identifiant bigint : une valeur non numérique est une ressource inexistante, pas une erreur serveur.
+        abort_unless(ctype_digit($id), 404);
+
         $log = AuditLog::with('actor')->findOrFail($id);
         return new AuditLogResource($log);
     }

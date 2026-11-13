@@ -5,6 +5,8 @@ namespace App\Modules\Governance\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Governance\Models\Dispute;
 use App\Modules\Governance\Models\DisputeMessage;
+use App\Modules\Matching\Models\ClientRequest;
+use App\Modules\Matching\Models\Proposal;
 use App\Modules\Finance\Services\EscrowService;
 use Illuminate\Http\Request;
 
@@ -21,6 +23,19 @@ class DisputeController extends Controller
             'reason' => 'required|string|max:255',
             'description' => 'required|string',
         ]);
+
+        // Un litige oppose les deux parties de la mission : le client de la demande et le
+        // technicien mandaté (proposition acceptée). Tout autre couple est refusé.
+        $clientRequest = ClientRequest::findOrFail($request->request_id);
+        $technicianId = Proposal::where('request_id', $clientRequest->id)->where('status', 'accepted')->value('technician_id');
+        $parties = array_filter([$clientRequest->client_id, $technicianId]);
+        $openerId = $request->user()->id;
+
+        if (!in_array($openerId, $parties, true)
+            || !in_array($request->against, $parties, true)
+            || $request->against === $openerId) {
+            return response()->json(['message' => 'Un litige ne peut opposer que les deux parties de la mission.'], 403);
+        }
 
         $dispute = Dispute::create([
             'request_id' => $request->request_id,
