@@ -7,7 +7,8 @@ use App\Modules\Matching\Controllers\SseNotificationController;
 use App\Modules\Matching\Controllers\PositionController;
 use App\Modules\Matching\Controllers\AdminMatchingController;
 
-// SSE stream — auth handled manually (EventSource can't send headers)
+// SSE stream — authentifié par un jeton éphémère obtenu via POST /proposals/stream-token
+// (EventSource ne peut pas envoyer d'en-tête Authorization)
 Route::get('/proposals/stream', [SseNotificationController::class, 'stream']);
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -23,6 +24,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Technician proposal management
     Route::prefix('proposals')->group(function () {
+        Route::post('/stream-token', [SseNotificationController::class, 'issueToken']);
         Route::get('/my', [ProposalController::class, 'technicianProposals']);
         Route::get('/check-new', [ProposalController::class, 'checkNotification']);
         Route::get('/active-mission', [ProposalController::class, 'activeMission']);
