@@ -4,11 +4,11 @@
 
 | Composant | Exigence |
 |---|---|
-| PHP | 8.3 (FPM), extensions `pgsql`, `pdo_pgsql`, `mbstring`, `intl`, `gd` |
+| PHP | 8.2 minimum, 8.3 recommandé (FPM), extensions `pgsql`, `pdo_pgsql`, `mbstring`, `intl`, `gd`, `pcntl` (Reverb) |
 | PostgreSQL | ≥ 13, extension **PostGIS** (créée par la migration `create_locations_table`) |
 | Redis | recommandé pour `CACHE_DRIVER` (jetons SSE, limiteurs de débit partagés entre processus) |
 | Proxy inverse | Nginx (TLS, mise en mémoire tampon désactivée pour le SSE, proxy WebSocket) |
-| Superviseur | `supervisord` ou `systemd` pour le serveur WebSocket |
+| Superviseur | `supervisord` ou `systemd` pour le serveur WebSocket (Laravel Reverb) |
 
 ## 2. Configuration
 
@@ -34,7 +34,7 @@ php artisan stockage:privatiser                   # idempotente ; reprise des pi
 php artisan config:cache && php artisan route:cache && php artisan event:cache
 php artisan reliance:verifier-production           # code de sortie ≠ 0 : interrompre le déploiement
 sudo systemctl reload php8.3-fpm
-sudo supervisorctl restart reliance-websockets
+php artisan reverb:restart                         # redémarrage gracieux, relancé par le superviseur
 php artisan up
 ```
 
@@ -50,11 +50,15 @@ calibrage des prix à 03:00) — crontab de l'utilisateur web :
 * * * * * cd /srv/reliance/backend && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-**Serveur WebSocket** (`/etc/supervisor/conf.d/reliance-websockets.conf`) :
+**Serveur WebSocket — Laravel Reverb** (`/etc/supervisor/conf.d/reliance-websockets.conf`).
+Reverb implémente le protocole Pusher et reprend par défaut `PUSHER_APP_*` et le port 6001 :
+les clients web et mobile n'ont rien à changer. En production, augmenter la limite de descripteurs
+(`ulimit -n`) à hauteur du nombre de connexions simultanées attendu.
 
 ```ini
 [program:reliance-websockets]
-command=php /srv/reliance/backend/artisan websockets:serve --host=127.0.0.1 --port=6001
+command=php /srv/reliance/backend/artisan reverb:start --host=127.0.0.1 --port=6001
+minfds=10000
 user=www-data
 autostart=true
 autorestart=true
@@ -99,9 +103,7 @@ dans les journaux), échec de connexion ou d'inscription.
 
 ## 7. Risques résiduels connus
 
-- **Laravel 10 hors support** : trois avis non corrigés sur cette branche (consignés dans
-  `composer.json`, `config.audit.ignore`, avec leur mesure d'atténuation). Seule une migration vers
-  Laravel 12 les résout ; elle impose de remplacer `beyondcode/laravel-websockets` (abandonné,
-  incompatible avec Laravel 11 et au-delà) par Laravel Reverb.
+- **Origines WebSocket** : `allowed_origins` de `config/reverb.php` vaut `*`, l'application mobile
+  n'émettant pas d'en-tête `Origin`. Les canaux privés restent protégés par `/broadcasting/auth`.
 - **Flux SSE** : un client doit demander un nouveau jeton (`POST /v1/proposals/stream-token`)
   avant chaque reconnexion ; aucun client actuel n'utilise le flux.

@@ -74,7 +74,8 @@ class Subscription extends Model
         }
 
         $pausedAt = $this->metadata['paused_at'] ?? null;
-        $pausedDays = $pausedAt ? now()->diffInDays($pausedAt) : 0;
+        // Carbon 3 : diffInDays() est signé et fractionnaire ; la durée se mesure de la pause vers maintenant, en jours entiers.
+        $pausedDays = $pausedAt ? (int) \Carbon\Carbon::parse($pausedAt)->diffInDays(now()) : 0;
 
         $this->update([
             'status' => 'active',

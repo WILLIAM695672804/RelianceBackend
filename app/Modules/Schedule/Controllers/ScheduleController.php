@@ -45,12 +45,12 @@ class ScheduleController extends Controller
             $totalPossibleHours = $timeSlots->sum(function ($slot) {
                 $start = \Carbon\Carbon::parse($slot->start_time);
                 $end = \Carbon\Carbon::parse($slot->end_time);
-                return $start->diffInHours($end);
+                return (int) $start->diffInHours($end); // Carbon 3 : résultat fractionnaire, heures entières attendues
             });
             $totalPossibleHours = $totalPossibleHours ?: 45;
             $bookedHours = $appointments->sum(function ($appt) {
                 if ($appt->scheduled_end && $appt->scheduled_start) {
-                    return $appt->scheduled_start->diffInHours($appt->scheduled_end);
+                    return (int) $appt->scheduled_start->diffInHours($appt->scheduled_end);
                 }
                 return 2;
             });
