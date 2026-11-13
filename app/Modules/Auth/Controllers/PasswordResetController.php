@@ -12,17 +12,13 @@ class PasswordResetController extends Controller
 {
     public function forgotPassword(ForgotPasswordRequest $request)
     {
-        $status = Password::sendResetLink($request->only('email'));
-
-        if ($status === Password::RESET_LINK_SENT) {
-            return response()->json([
-                'message' => 'Lien de réinitialisation envoyé par email.'
-            ]);
-        }
+        // Réponse identique que le compte existe ou non (ou que l'envoi soit temporairement limité) :
+        // on ne doit pas permettre d'énumérer les comptes.
+        Password::sendResetLink($request->only('email'));
 
         return response()->json([
-            'message' => 'Impossible d\'envoyer le lien de réinitialisation.'
-        ], 400);
+            'message' => 'Si un compte correspond à cette adresse, un lien de réinitialisation vient d\'être envoyé.'
+        ]);
     }
 
     public function resetPassword(ResetPasswordRequest $request)

@@ -14,8 +14,8 @@ Route::prefix('auth')->group(function () {
     | Public
     |--------------------------------------------------------------------------
     */
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:public-write');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
     // Renvoi public du lien de vérification (compte non vérifié, donc sans session) — réponse neutre
     Route::post('/email/resend', function (\Illuminate\Http\Request $request) {
@@ -32,8 +32,8 @@ Route::prefix('auth')->group(function () {
     })->middleware('throttle:5,1');
 
     // Password Reset
-    Route::post('/forgot-password', [\App\Modules\Auth\Controllers\PasswordResetController::class, 'forgotPassword']);
-    Route::post('/reset-password', [\App\Modules\Auth\Controllers\PasswordResetController::class, 'resetPassword']);
+    Route::post('/forgot-password', [\App\Modules\Auth\Controllers\PasswordResetController::class, 'forgotPassword'])->middleware('throttle:public-write');
+    Route::post('/reset-password', [\App\Modules\Auth\Controllers\PasswordResetController::class, 'resetPassword'])->middleware('throttle:public-write');
 
     /*
     |--------------------------------------------------------------------------

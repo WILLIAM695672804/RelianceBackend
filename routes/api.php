@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     // Formulaire de contact public
-    Route::post('contact', [\App\Http\Controllers\ContactController::class, 'store']);
+    Route::post('contact', [\App\Http\Controllers\ContactController::class, 'store'])->middleware('throttle:public-write');
 
     require base_path('app/Modules/Auth/Routes/api.php');
     require base_path('app/Modules/Profile/Routes/api.php');

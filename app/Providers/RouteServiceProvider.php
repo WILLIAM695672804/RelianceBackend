@@ -44,8 +44,15 @@ class RouteServiceProvider extends ServiceProvider
             );
         });
 
+        // Connexion : 5 tentatives par minute et par couple (e-mail, IP) — limite le bourrage d'identifiants
+        // sans pénaliser les utilisateurs partageant une même IP (NAT d'opérateur mobile).
         RateLimiter::for('login', function (Request $request) {
-            return Limit::perMinute(30)->by($request->ip());
+            return Limit::perMinute(5)->by(mb_strtolower((string) $request->input('email')) . '|' . $request->ip());
+        });
+
+        // Routes publiques écrivant en base ou envoyant des e-mails : 10 requêtes par minute et par IP.
+        RateLimiter::for('public-write', function (Request $request) {
+            return Limit::perMinute(10)->by($request->ip());
         });
     }
 }
