@@ -284,4 +284,33 @@ class ModulesWorkflowTest extends TestCase
         $this->actingAs($this->makeUser('client'), 'sanctum')
             ->post('/api/v1/technician/profile', ['_method' => 'PUT', 'name' => 'X'], ['Accept' => 'application/json'])->assertForbidden();
     }
+
+    // ── Événements SLA ─────────────────────────────────────
+
+    public function test_seul_l_administrateur_cree_un_evenement_sla(): void
+    {
+        $client = $this->makeUser('client');
+        $tech = $this->makeTechnician();
+        $tiers = $this->makeUser('client');
+        [$request] = $this->assignedMission($client, $tech);
+        $payload = ['request_id' => $request->id, 'event_key' => 'late_arrival'];
+
+        $this->actingAs($tiers, 'sanctum')->postJson('/api/v1/sla-events', $payload)->assertForbidden();
+        $this->actingAs($client, 'sanctum')->postJson('/api/v1/sla-events', $payload)->assertForbidden();
+        $this->actingAs($tech, 'sanctum')->postJson('/api/v1/sla-events', $payload)->assertForbidden();
+        $this->actingAs($this->makeUser('admin'), 'sanctum')->postJson('/api/v1/sla-events', $payload)->assertStatus(201);
+    }
+
+    public function test_les_evenements_sla_d_une_demande_ne_sont_lisibles_que_de_ses_parties(): void
+    {
+        $client = $this->makeUser('client');
+        $tech = $this->makeTechnician();
+        $tiers = $this->makeUser('client');
+        [$request] = $this->assignedMission($client, $tech);
+
+        $this->actingAs($tiers, 'sanctum')->getJson("/api/v1/sla-events/request/{$request->id}")->assertForbidden();
+        $this->actingAs($client, 'sanctum')->getJson("/api/v1/sla-events/request/{$request->id}")->assertOk();
+        $this->actingAs($tech, 'sanctum')->getJson("/api/v1/sla-events/request/{$request->id}")->assertOk();
+        $this->actingAs($this->makeUser('admin'), 'sanctum')->getJson("/api/v1/sla-events/request/{$request->id}")->assertOk();
+    }
 }

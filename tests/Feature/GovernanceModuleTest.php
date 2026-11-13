@@ -107,23 +107,24 @@ class GovernanceModuleTest extends TestCase
 
     // ── SLA Events ─────────────────────────────────────────
 
-    public function test_authenticated_user_can_create_sla_event()
+    public function test_admin_can_create_sla_event_but_a_client_cannot()
     {
         $clientRequest = ClientRequest::create([
             'client_id'   => $this->client->id,
             'title'       => 'Fix my plumbing',
             'description' => 'Leaking pipe',
         ]);
+        $payload = [
+            'request_id' => $clientRequest->id,
+            'event_key'  => 'late_cancellation',
+            'payload'    => ['reason' => 'Technician did not show up'],
+        ];
 
-        $response = $this->withHeader('Authorization', "Bearer {$this->clientToken}")
-            ->postJson('/api/v1/sla-events', [
-                'request_id' => $clientRequest->id,
-                'event_key'  => 'late_cancellation',
-                'payload'    => ['reason' => 'Technician did not show up'],
-            ]);
+        // Un événement SLA déclenche des pénalités : ni le client ni un tiers ne peuvent en créer.
+        $this->withHeader('Authorization', "Bearer {$this->clientToken}")->postJson('/api/v1/sla-events', $payload)->assertStatus(403);
 
-        $response->assertStatus(201)
-            ->assertJsonPath('data.event_key', 'late_cancellation');
+        $this->withHeader('Authorization', "Bearer {$this->adminToken}")->postJson('/api/v1/sla-events', $payload)
+            ->assertStatus(201)->assertJsonPath('data.event_key', 'late_cancellation');
     }
 
     // ── Audit Logs ─────────────────────────────────────────
