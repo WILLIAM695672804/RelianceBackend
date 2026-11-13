@@ -1,0 +1,23 @@
+# Ce qui ne doit pas entrer dans l'image.
+#
+# .env d'abord : il contient les secrets de production, et la composition les
+# fournit déjà par env_file. Un .env copié dans l'image serait lu en priorité
+# par Laravel, et figerait des réglages dans une couche partagée.
+.env
+.env.*
+!.env.example
+
+vendor/            # réinstallé par composer, pour l'architecture du serveur
+node_modules/
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+public/storage      # lien symbolique vers le volume
+.git/
+.github/
+tests/
+docs/
+*.log
+composer.phar
+.phpunit.result.cache

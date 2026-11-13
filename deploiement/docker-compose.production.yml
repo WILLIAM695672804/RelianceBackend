@@ -1,0 +1,126 @@
+# Reliance en production. Second locataire du serveur : SASI y tourne déjà, et
+# le frontal Caddy détient seul les ports 80 et 443.
+#
+#     ./deploiement/deployer.sh
+#
+# Aucun port n'est publié. Le service « web » rejoint le réseau « frontal » sous
+# l'alias « reliance-web », que config/proxy/sites/reliance.caddy appelle.
+#
+# Les limites de mémoire ne sont pas décoratives : la machine a 3,8 Gio et une
+# autre application en service. Sans elles, une fuite dans un seul processus
+# emporte les deux applications.
+
+name: reliance
+
+x-php: &php
+  build:
+    context: ..
+    dockerfile: deploiement/Dockerfile
+  image: reliance-php
+  env_file: [../.env]
+  environment:
+    # Le code tourne dans un conteneur : ces adresses sont des noms de services,
+    # jamais « localhost », qui désignerait le conteneur lui-même.
+    DB_HOST: base
+    DB_PORT: 5432
+    REDIS_HOST: cache
+    REDIS_PORT: 6379
+    PUSHER_HOST: reverb
+    PUSHER_PORT: 8080
+    PUSHER_SCHEME: http
+  volumes:
+    - storage:/app/storage
+    # Caches de configuration et de routes. Dans un volume et non dans l'image :
+    # ils sont engendrés après coup, une fois les secrets connus, par un
+    # conteneur jetable — sans volume, ils disparaîtraient avec lui.
+    - cache_amorce:/app/bootstrap/cache
+  networks: [interne]
+  depends_on:
+    base: {condition: service_healthy}
+    cache: {condition: service_started}
+  restart: unless-stopped
+
+services:
+
+  base:
+    # PostGIS est exigé par la géolocalisation du rapprochement (migration
+    # create_locations_table). L'image officielle « postgis/postgis » n'existe
+    # qu'en amd64 ; celle-ci est la construction multi-architecture du même
+    # projet, et porte l'ARM64 du serveur.
+    image: imresamu/postgis:16-3.5-alpine3.21
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-reliance_db}
+      POSTGRES_USER: ${DB_USERNAME:-reliance_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?définissez DB_PASSWORD dans .env}
+    volumes:
+      - base_data:/var/lib/postgresql/data
+    healthcheck:
+      # Sans cette attente, les migrations partent avant que la base accepte les
+      # connexions, et le déploiement échoue sur « Connection refused ».
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-reliance_user} -d ${DB_DATABASE:-reliance_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [interne]
+    mem_limit: 512m
+    restart: unless-stopped
+
+  cache:
+    image: redis:7-alpine
+    # Cache, sessions et jetons SSE. « allkeys-lru » : plutôt oublier une entrée
+    # ancienne que refuser une écriture une fois la borne atteinte.
+    command: redis-server --maxmemory 96mb --maxmemory-policy allkeys-lru --save ""
+    networks: [interne]
+    mem_limit: 128m
+    restart: unless-stopped
+
+  api:
+    <<: *php
+    mem_limit: 512m
+
+  reverb:
+    <<: *php
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    mem_limit: 256m
+
+  planificateur:
+    <<: *php
+    # Trois tâches en dépendent : expiration des propositions chaque minute,
+    # détection des absences toutes les dix minutes, calibrage des prix à 3 h.
+    # « schedule:work » remplace la ligne de crontab, dans le conteneur.
+    command: php artisan schedule:work
+    mem_limit: 192m
+
+  web:
+    build:
+      context: ../../RelianceFrontend
+      args:
+        VITE_API_URL: https://${DOMAINE:?définissez DOMAINE dans .env}
+        VITE_PUSHER_APP_KEY: ${PUSHER_APP_KEY:?définissez PUSHER_APP_KEY dans .env}
+        VITE_PUSHER_HOST: ${DOMAINE}
+        VITE_PUSHER_PORT: "443"
+        VITE_PUSHER_SCHEME: https
+    image: reliance-web
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # En lecture seule : nginx sert les pièces jointes publiques, il n'a
+      # aucune raison d'écrire dans le stockage de l'application.
+      - storage:/srv/storage:ro
+    networks:
+      interne:
+      frontal:
+        aliases: [reliance-web]
+    depends_on: [api, reverb]
+    mem_limit: 128m
+    restart: unless-stopped
+
+networks:
+  interne:
+  frontal:
+    name: frontal
+    external: true          # créé une fois : docker network create frontal
+
+volumes:
+  base_data:
+  storage:                  # pièces jointes, journaux, caches de Laravel
+  cache_amorce:             # bootstrap/cache : configuration et routes compilées

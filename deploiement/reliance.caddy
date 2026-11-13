@@ -1,0 +1,40 @@
+# Reliance — à copier dans le frontal partagé, puis recharger :
+#
+#     cp deploiement/reliance.caddy ~/AppSuivi/sasi-ia/config/proxy/sites/
+#     cd ~/AppSuivi/sasi-ia
+#     frontal exec caddy caddy reload --config /etc/caddy/Caddyfile
+#
+# Le nom doit figurer ici pour être servi : le frontal répond « Hôte inconnu »
+# à tout domaine absent de sites/, et ne demande aucun certificat pour lui.
+#
+# Un seul nom de domaine pour l'interface, l'API et le WebSocket. C'est nginx,
+# dans le conteneur « reliance-web », qui répartit selon le chemin.
+
+{$DOMAINE_RELIANCE:reliance.the7ing.site} {
+	encode zstd gzip
+
+	reverse_proxy reliance-web:80 {
+		# Laravel en a besoin pour fabriquer des liens en https et pour
+		# reconnaître l'adresse du visiteur derrière deux proxys.
+		header_up X-Forwarded-Proto https
+		header_up X-Real-IP {remote_host}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	# Pas de X-Frame-Options DENY ici : le règlement de paiement de NotchPay
+	# peut revenir dans un cadre. La protection repose sur l'origine unique et
+	# sur le jeton CSRF de Sanctum.
+
+	log {
+		output file /var/log/caddy/reliance.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}
