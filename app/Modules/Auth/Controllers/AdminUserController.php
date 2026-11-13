@@ -63,8 +63,10 @@ class AdminUserController extends Controller
 
     public function pendingTechnicians()
     {
+        // Un technicien rejeté est désactivé : il ne doit plus encombrer la file d'approbation.
         $users = User::role('technicien')
             ->where('verified', false)
+            ->where('is_active', true)
             ->with(['roles', 'kycDocuments'])
             ->orderBy('created_at', 'desc')
             ->paginate(20);
@@ -77,6 +79,10 @@ class AdminUserController extends Controller
         $user = User::role('technicien')->findOrFail($id);
         $user->verified = true;
         $user->is_active = true;
+        // Une approbation annule un éventuel rejet antérieur.
+        $meta = $user->meta ?? [];
+        unset($meta['rejection_reason'], $meta['rejected_at'], $meta['rejected_by']);
+        $user->meta = $meta ?: null;
         $user->save();
 
         return response()->json([
@@ -91,7 +97,21 @@ class AdminUserController extends Controller
 
         $user = User::role('technicien')->findOrFail($id);
         $user->is_active = false;
+        // Le motif est conservé et communiqué : le technicien doit savoir quoi corriger.
+        $user->meta = array_merge($user->meta ?? [], [
+            'rejection_reason' => $request->reason,
+            'rejected_at' => now()->toIso8601String(),
+            'rejected_by' => $request->user()->id,
+        ]);
         $user->save();
+
+        app(\App\Modules\Notification\Services\NotificationService::class)->send(
+            $user->id,
+            'Candidature technicien refusée',
+            $request->reason,
+            ['type' => 'technician_rejected'],
+            ['in_app', 'email']
+        );
 
         return response()->json([
             'message' => 'Technicien rejeté',
