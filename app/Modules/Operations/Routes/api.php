@@ -26,7 +26,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [InvoiceController::class, 'index']);
         Route::get('/{id}', [InvoiceController::class, 'show']);
         Route::get('/{id}/pdf', [InvoiceController::class, 'pdf']);
-        Route::post('/{id}/pay', [InvoiceController::class, 'markPaid']);
+        Route::post('/{id}/pay', [InvoiceController::class, 'markPaid'])->middleware('2fa.clients');
     });
 
     // ── Rendez-vous (Appointments) ──────────────────────────

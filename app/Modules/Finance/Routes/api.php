@@ -20,14 +20,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Frais de diagnostic
     Route::post('requests/{id}/diagnostic', [\App\Modules\Finance\Controllers\DiagnosticController::class, 'store']);
     Route::get('requests/{id}/diagnostic', [\App\Modules\Finance\Controllers\DiagnosticController::class, 'show']);
-    Route::post('diagnostics/{id}/pay', [\App\Modules\Finance\Controllers\DiagnosticController::class, 'pay']);
+    Route::post('diagnostics/{id}/pay', [\App\Modules\Finance\Controllers\DiagnosticController::class, 'pay'])->middleware('2fa.clients');
 
     Route::get('wallet', [WalletController::class, 'show']);
     Route::get('wallets', [WalletController::class, 'index']);
-    Route::post('wallets/convert', [WalletController::class, 'convert']);
-    Route::post('wallet/recharge', [WalletController::class, 'recharge']);
+    Route::post('wallets/convert', [WalletController::class, 'convert'])->middleware('2fa.clients');
+    Route::post('wallet/recharge', [WalletController::class, 'recharge'])->middleware('2fa.clients');
     Route::get('wallet/transactions', [WalletController::class, 'transactions']);
-    Route::post('wallet/withdraw', [WalletController::class, 'withdraw']);
+    Route::post('wallet/withdraw', [WalletController::class, 'withdraw'])->middleware('2fa.clients');
 
     // ── Payments ────────────────────────────────────────────
     Route::get('payments', [PaymentController::class, 'index']);
@@ -50,7 +50,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // ── Credits & Exchange Rates ────────────────────────────
     Route::get('credits/rates', [CreditController::class, 'rates']);
-    Route::post('credits/purchase', [CreditController::class, 'purchase']);
+    Route::post('credits/purchase', [CreditController::class, 'purchase'])->middleware('2fa.clients');
 
     // ── Admin Finance Routes ────────────────────────────────
     Route::middleware('role:admin')->group(function () {

@@ -144,6 +144,7 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Connexion réussie',
             'user'    => $user,
+            'requires_2fa_setup' => \App\Http\Middleware\RequireTwoFactorForClients::doitActiver($user),
         ]);
     }
 
@@ -170,7 +171,8 @@ class AuthController extends Controller
         $user->load('roles');
 
         return response()->json([
-            'user' => $user
+            'user' => $user,
+            'requires_2fa_setup' => \App\Http\Middleware\RequireTwoFactorForClients::doitActiver($user),
         ]);
     }
 }
