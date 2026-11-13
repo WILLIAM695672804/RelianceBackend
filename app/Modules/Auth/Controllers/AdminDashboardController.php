@@ -17,8 +17,11 @@ class AdminDashboardController extends Controller
         $totalTechnicians = User::role('technicien')->count();
         $totalAgencies = User::role('agence')->count();
 
+        // Même définition que la file d'approbation (AdminUserController::pendingTechnicians) :
+        // un technicien rejeté (désactivé) n'est plus « en attente ».
         $pendingTechnicians = User::role('technicien')
             ->where('verified', false)
+            ->where('is_active', true)
             ->count();
 
         $pendingKyc = KycDocument::where('status', 'pending')->count();

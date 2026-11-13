@@ -157,4 +157,27 @@ class AdminUserTest extends TestCase
         $this->assertArrayNotHasKey('two_factor_secret', $this->asAdmin()->getJson("/api/v1/auth/admin/users/{$user->id}")->json('data'));
         $this->assertStringNotContainsString('two_factor_secret', $this->asAdmin()->getJson('/api/v1/auth/admin/users')->getContent());
     }
+
+    public function test_les_statistiques_comptent_roles_en_attente_et_demandes(): void
+    {
+        $this->makeUser('client');
+        $this->makeUser('client');
+        $this->makeUser('technicien', ['verified' => false]);
+        $this->makeUser('technicien', ['verified' => false, 'is_active' => false]); // rejeté : hors file
+        $this->makeUser('technicien', ['verified' => true]);
+        $this->makeUser('agence');
+        $this->actingAs($this->makeUser('client'), 'sanctum');
+        $this->makeRequestFor($this->makeUser('client'));
+
+        $stats = $this->asAdmin()->getJson('/api/v1/auth/admin/stats')->assertOk()->json();
+
+        $this->assertSame(4, $stats['total_clients']);
+        $this->assertSame(3, $stats['total_technicians']);
+        $this->assertSame(1, $stats['total_agencies']);
+        $this->assertSame(1, $stats['pending_technicians']);
+        $this->assertSame(1, $stats['total_requests']);
+        $this->assertSame(1, $stats['pending_requests']);
+        $this->assertSame($stats['pending_technicians'], count($this->asAdmin()->getJson('/api/v1/auth/admin/technicians/pending')->json('data')));
+        $this->assertLessThanOrEqual(10, count($stats['recent_users']));
+    }
 }
