@@ -31,7 +31,8 @@ class RequestAnalysisService
 
         $detectedSkills = $this->detectSkills($text);
         $difficulty     = $this->estimateDifficulty($text);
-        $suggestedPrice = $this->estimatePrice($difficulty);
+        $calibration    = app(PriceCalibrationService::class);
+        $suggestedPrice = $calibration->estimate($difficulty);
 
         // Auto-set detected_category if not already set
         if (!$clientRequest->detected_category && !empty($detectedSkills)) {
@@ -51,6 +52,7 @@ class RequestAnalysisService
             'suggested_price'      => $suggestedPrice,
             'payload'              => [
                 'method'             => 'keyword_matching_v1',
+                'price_model'        => $calibration->deployedVersion() ?? 'default',
                 'text_length'        => mb_strlen($text),
                 'detected_categories' => $this->detectCategories($text),
             ],
@@ -111,15 +113,5 @@ class RequestAnalysisService
             }
         }
         return 'moderate';
-    }
-
-    private function estimatePrice(string $difficulty): float
-    {
-        return match ($difficulty) {
-            'simple'   => 5000.00,
-            'moderate' => 15000.00,
-            'complex'  => 35000.00,
-            default    => 15000.00,
-        };
     }
 }

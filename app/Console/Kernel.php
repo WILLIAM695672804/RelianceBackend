@@ -15,6 +15,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('proposals:expire')->everyMinute();
         // Absences aux rendez-vous confirmés (pénalités SLA automatiques)
         $schedule->command('sla:detect-no-shows')->everyTenMinutes();
+        // Calibrage quotidien du prix suggéré sur les prix réellement acceptés
+        $schedule->command('ml:calibrate-prices')->dailyAt('03:00');
     }
 
     /**

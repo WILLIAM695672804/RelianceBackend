@@ -42,5 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/map', [AdminMatchingController::class, 'map']);
         Route::get('/admin/requests', [AdminMatchingController::class, 'index']);
         Route::post('/admin/requests/{id}/assign', [AdminMatchingController::class, 'assign']);
+        Route::get('/admin/ml-models', [\App\Modules\Matching\Controllers\AdminMlController::class, 'index']);
+        Route::post('/admin/ml-models/train', [\App\Modules\Matching\Controllers\AdminMlController::class, 'train']);
     });
 });
