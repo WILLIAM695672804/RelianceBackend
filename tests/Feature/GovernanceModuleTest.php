@@ -77,9 +77,9 @@ class GovernanceModuleTest extends TestCase
         $response = $this->withHeader('Authorization', "Bearer {$this->adminToken}")
             ->getJson('/api/v1/sla-rules');
 
-        // La migration fournit deux règles par défaut (late_arrival, technician_cancellation).
+        // La migration fournit trois règles par défaut (late_arrival, technician_cancellation, no_show).
         $response->assertStatus(200)
-            ->assertJsonCount(3, 'data');
+            ->assertJsonCount(4, 'data');
         $this->assertContains('no_show', collect($response->json('data'))->pluck('event_key')->all());
     }
 

@@ -91,6 +91,7 @@ class JobController extends Controller
         }
 
         $validated = $request->validated();
+        $previousStatus = $job->status;
         $updates = ['status' => $validated['status']];
 
         if ($validated['status'] === 'in_progress' && !$job->started_at) {
@@ -107,6 +108,13 @@ class JobController extends Controller
         }
 
         $job->update($updates);
+
+        // Détection automatique des manquements (retard, annulation) : ne doit jamais bloquer la mise à jour.
+        try {
+            app(\App\Modules\Governance\Services\SlaDetectionService::class)->onJobStatusChanged($job->fresh(['appointment']), $previousStatus, $validated['status']);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Détection SLA échouée', ['job_id' => $job->id, 'erreur' => $e->getMessage()]);
+        }
 
         // La demande suit la mission : sans cela, le client ne peut jamais déposer d'avis
         // (ReviewController exige une demande « completed »).

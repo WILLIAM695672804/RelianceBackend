@@ -13,6 +13,8 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->command('proposals:expire')->everyMinute();
+        // Absences aux rendez-vous confirmés (pénalités SLA automatiques)
+        $schedule->command('sla:detect-no-shows')->everyTenMinutes();
     }
 
     /**

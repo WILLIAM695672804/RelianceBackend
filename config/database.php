@@ -74,6 +74,9 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
+            // Fuseau de la session : celui de l'application (UTC). Sans cela, PostgreSQL interprète les dates
+            // écrites par Eloquent dans son propre fuseau (ex. Africa/Douala) et les décale d'une heure.
+            'timezone' => 'UTC',
             'sslmode' => 'prefer',
         ],
 

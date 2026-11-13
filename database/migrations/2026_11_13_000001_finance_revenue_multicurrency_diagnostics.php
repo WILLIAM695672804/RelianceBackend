@@ -33,11 +33,12 @@ return new class extends Migration
             $table->unique('request_id');
         });
 
-        // Règles SLA par défaut, déclenchées automatiquement (retard à l'arrivée, annulation par le technicien).
+        // Règles SLA par défaut, déclenchées automatiquement (retard, annulation, absence).
         $now = now();
         foreach ([
             ['late_arrival', 'Retard à l\'arrivée', 'Le technicien arrive plus de 15 minutes après l\'horaire convenu.', 3],
             ['technician_cancellation', 'Annulation par le technicien', 'Le technicien annule une mission qu\'il avait acceptée.', 10],
+            ['no_show', 'Absence au rendez-vous', 'Le technicien ne s\'est pas présenté au rendez-vous confirmé.', 15],
         ] as [$key, $name, $description, $points]) {
             if (!DB::table('sla_rules')->where('event_key', $key)->exists()) {
                 DB::table('sla_rules')->insert([
@@ -58,6 +59,6 @@ return new class extends Migration
             $table->unique('user_id');
         });
         Schema::dropIfExists('platform_revenues');
-        DB::table('sla_rules')->whereIn('event_key', ['late_arrival', 'technician_cancellation'])->delete();
+        DB::table('sla_rules')->whereIn('event_key', ['late_arrival', 'technician_cancellation', 'no_show'])->delete();
     }
 };
