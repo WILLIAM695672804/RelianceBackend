@@ -31,6 +31,29 @@ class InvoiceController extends Controller
     /**
      * Voir une facture.
      */
+    /** GET /v1/invoices/{id}/pdf — Facture au format PDF (client, prestataire ou administrateur). */
+    public function pdf(Request $request, string $id, \App\Modules\Operations\Services\InvoicePdfService $pdf)
+    {
+        $user = $request->user();
+        $invoice = Invoice::with(['quote', 'client', 'issuer'])->findOrFail($id);
+
+        if ($invoice->client_id !== $user->id && $invoice->issuer_id !== $user->id && !$user->hasRole('admin')) {
+            return response()->json(['message' => 'Non autorisé'], 403);
+        }
+
+        $contenu = $pdf->render($invoice);
+        $chemin = 'invoices/' . preg_replace('/[^A-Za-z0-9_-]/', '_', (string) $invoice->reference) . '.pdf';
+        \Illuminate\Support\Facades\Storage::disk('local')->put($chemin, $contenu);
+        if ($invoice->external_pdf_ref !== $chemin) {
+            $invoice->forceFill(['external_pdf_ref' => $chemin])->save();
+        }
+
+        return response($contenu, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="facture-' . preg_replace('/[^A-Za-z0-9_-]/', '_', (string) $invoice->reference) . '.pdf"',
+        ]);
+    }
+
     public function show(Request $request, string $id)
     {
         $user = $request->user();
