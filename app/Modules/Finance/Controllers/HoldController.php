@@ -23,7 +23,7 @@ class HoldController extends Controller
      */
     public function index(Request $request)
     {
-        $wallet = Wallet::where('user_id', $request->user()->id)->first();
+        $wallet = Wallet::xaf()->where('user_id', $request->user()->id)->first();
 
         if (!$wallet) {
             return response()->json(['data' => []]);

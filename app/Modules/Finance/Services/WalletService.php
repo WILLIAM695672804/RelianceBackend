@@ -3,6 +3,7 @@
 namespace App\Modules\Finance\Services;
 
 use App\Modules\Finance\Models\Payment;
+use App\Modules\Finance\Models\PlatformRevenue;
 use App\Modules\Finance\Models\Transaction;
 use App\Modules\Finance\Models\Wallet;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +33,7 @@ class WalletService
             ]);
 
             if ($payment->payer_id) {
-                $wallet = Wallet::where('user_id', $payment->payer_id)->lockForUpdate()->first();
+                $wallet = Wallet::xaf()->where('user_id', $payment->payer_id)->lockForUpdate()->first();
                 if ($wallet) {
                     $wallet->increment('balance', $payment->amount);
                     $balance = $wallet->fresh()->balance;
@@ -70,7 +71,7 @@ class WalletService
     public function chargePlatform(string $userId, float $amount, string $type, array $metadata = []): Payment
     {
         return DB::transaction(function () use ($userId, $amount, $type, $metadata) {
-            $wallet = Wallet::where('user_id', $userId)->lockForUpdate()->firstOrFail();
+            $wallet = Wallet::xaf()->where('user_id', $userId)->lockForUpdate()->firstOrFail();
 
             if ($wallet->availableBalance() < $amount) {
                 throw new \DomainException('Solde insuffisant : rechargez votre portefeuille.');
@@ -86,6 +87,8 @@ class WalletService
                 'settled_at' => now(),
                 'metadata' => array_merge(['type' => $type], $metadata),
             ]);
+
+            PlatformRevenue::create(['payment_id' => $payment->id, 'source' => $type, 'amount' => $amount, 'currency' => $wallet->currency]);
 
             $wallet->decrement('balance', $amount);
             Transaction::create([

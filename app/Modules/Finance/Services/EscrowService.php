@@ -6,7 +6,7 @@ use App\Modules\Finance\Models\Wallet;
 use App\Modules\Finance\Models\Hold;
 use App\Modules\Finance\Models\Payment;
 use App\Modules\Finance\Models\Transaction;
-use App\Modules\Finance\Models\PlatformFee;
+use App\Modules\Finance\Models\PlatformRevenue;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -18,7 +18,7 @@ class EscrowService
     public function placeHold(string $userId, float $amount, string $reason): Hold
     {
         return DB::transaction(function () use ($userId, $amount, $reason) {
-            $wallet = Wallet::where('user_id', $userId)->lockForUpdate()->firstOrFail();
+            $wallet = Wallet::xaf()->where('user_id', $userId)->lockForUpdate()->firstOrFail();
 
             if ($wallet->availableBalance() < $amount) {
                 throw new \DomainException('Solde insuffisant');
@@ -46,21 +46,13 @@ class EscrowService
 
             $payerWallet = Wallet::where('id', $hold->wallet_id)->lockForUpdate()->firstOrFail();
             $payeeWallet = Wallet::firstOrCreate(
-                ['user_id' => $payeeId],
-                ['id' => (string) Str::uuid(), 'balance' => 0, 'currency' => 'XAF']
+                ['user_id' => $payeeId, 'currency' => 'XAF'],
+                ['id' => (string) Str::uuid(), 'balance' => 0]
             );
-            $payeeWallet = Wallet::where('user_id', $payeeId)->lockForUpdate()->firstOrFail();
+            $payeeWallet = Wallet::xaf()->where('user_id', $payeeId)->lockForUpdate()->firstOrFail();
 
-            // Calculate platform fees
-            $fees = PlatformFee::where('active', true)
-                ->where('applies_to', 'job')
-                ->get()
-                ->sum(fn ($fee) => $fee->fee_type === 'percentage'
-                    ? $hold->amount * $fee->value
-                    : $fee->value);
-
-            // Les frais ne peuvent jamais dépasser le montant capturé (net du bénéficiaire ≥ 0).
-            $fees = min((float) $fees, (float) $hold->amount);
+            // Frais de plateforme (jamais supérieurs au montant : net du bénéficiaire ≥ 0).
+            $fees = app(PlatformFeeService::class)->forAmount((float) $hold->amount, 'job');
             $netAmount = $hold->amount - $fees;
 
             $payment = Payment::create([
@@ -94,6 +86,10 @@ class EscrowService
                 'type' => 'credit',
                 'related_payment' => $payment->id,
             ]);
+
+            if ($fees > 0) {
+                PlatformRevenue::create(['payment_id' => $payment->id, 'source' => 'job_commission', 'amount' => $fees, 'currency' => $payerWallet->currency]);
+            }
 
             $hold->update([
                 'status' => 'captured',

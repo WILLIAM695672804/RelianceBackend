@@ -31,10 +31,19 @@ class ProfileController extends Controller
 
         if ($user->isDirty('email')) {
             $user->email_verified_at = null;
-            $user->sendEmailVerificationNotification();
         }
 
         $user->save();
+
+        // Le nouveau lien est envoyé après l'enregistrement : un échec SMTP ne doit pas faire échouer
+        // la modification (renvoi possible depuis le tableau de bord).
+        if ($user->wasChanged('email')) {
+            try {
+                $user->sendEmailVerificationNotification();
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Envoi du lien de vérification échoué', ['user_id' => $user->id, 'erreur' => $e->getMessage()]);
+            }
+        }
 
         return response()->json([
             'message' => 'Profil mis à jour',

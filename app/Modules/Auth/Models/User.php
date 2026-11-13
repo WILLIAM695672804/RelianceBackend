@@ -98,7 +98,13 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function wallet()
     {
-        return $this->hasOne(\App\Modules\Finance\Models\Wallet::class);
+        // Portefeuille principal (XAF) ; les autres devises : voir wallets().
+        return $this->hasOne(\App\Modules\Finance\Models\Wallet::class)->where('currency', 'XAF');
+    }
+
+    public function wallets()
+    {
+        return $this->hasMany(\App\Modules\Finance\Models\Wallet::class);
     }
 
     public function skills()

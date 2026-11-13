@@ -47,7 +47,7 @@ class AdminPayoutController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $wallet = Wallet::where('user_id', $payment->payee_id)->lockForUpdate()->firstOrFail();
+            $wallet = Wallet::xaf()->where('user_id', $payment->payee_id)->lockForUpdate()->firstOrFail();
 
             // Solde DISPONIBLE (hors fonds réservés en escrow), pas le solde brut,
             // pour éviter d'approuver un retrait sur des fonds déjà bloqués.

@@ -113,7 +113,7 @@ class TechnicianProfileController extends Controller
         $userId = $user->id;
 
         // ── Wallet & gains (crédits) ────────────────────────────
-        $wallet = \App\Modules\Finance\Models\Wallet::where('user_id', $userId)->first();
+        $wallet = \App\Modules\Finance\Models\Wallet::xaf()->where('user_id', $userId)->first();
         $balance = $wallet ? (float) $wallet->balance : 0.0;
         $available = $wallet ? (float) $wallet->availableBalance() : 0.0;
 

@@ -18,6 +18,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // ── Wallet ──────────────────────────────────────────────
     Route::get('wallet', [WalletController::class, 'show']);
+    Route::get('wallets', [WalletController::class, 'index']);
+    Route::post('wallets/convert', [WalletController::class, 'convert']);
     Route::post('wallet/recharge', [WalletController::class, 'recharge']);
     Route::get('wallet/transactions', [WalletController::class, 'transactions']);
     Route::post('wallet/withdraw', [WalletController::class, 'withdraw']);
@@ -55,6 +57,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::put('admin/subscriptions/plans/{id}', [SubscriptionController::class, 'updatePlan']);
 
         // Platform Fees Admin
+        Route::get('admin/revenue', [\App\Modules\Finance\Controllers\AdminRevenueController::class, 'index']);
         Route::get('admin/fees', [PlatformFeeController::class, 'index']);
         Route::post('admin/fees', [PlatformFeeController::class, 'store']);
         Route::put('admin/fees/{id}', [PlatformFeeController::class, 'update']);

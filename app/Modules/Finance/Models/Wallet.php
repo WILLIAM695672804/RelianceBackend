@@ -50,6 +50,12 @@ class Wallet extends Model
         return $this->hasMany(Hold::class)->where('status', 'held');
     }
 
+    /** Portefeuille principal (XAF) : celui sur lequel reposent séquestre, abonnements et paiements. */
+    public function scopeXaf($query)
+    {
+        return $query->where('currency', 'XAF');
+    }
+
     public function availableBalance(): float
     {
         $heldAmount = $this->activeHolds()->sum('amount');

@@ -47,8 +47,8 @@ class CreditController extends Controller
         return DB::transaction(function () use ($request, $rate, $creditAmount) {
             // Garantit l'existence du wallet (crédité plus tard par le webhook).
             Wallet::firstOrCreate(
-                ['user_id' => $request->user()->id],
-                ['id' => (string) Str::uuid(), 'balance' => 0, 'currency' => 'XAF']
+                ['user_id' => $request->user()->id, 'currency' => 'XAF'],
+                ['id' => (string) Str::uuid(), 'balance' => 0]
             );
 
             // Paiement EN ATTENTE : aucun crédit tant que la passerelle n'a pas confirmé.

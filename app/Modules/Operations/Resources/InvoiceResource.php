@@ -23,6 +23,9 @@ class InvoiceResource extends JsonResource
             ]),
             'amount'           => $this->amount,
             'tax_amount'       => $this->tax_amount,
+            // Frais d'intervention (commission de plateforme) : affichés avant paiement.
+            'platform_fee'     => app(\App\Modules\Finance\Services\PlatformFeeService::class)->forAmount((float) $this->amount, 'job'),
+            'net_to_issuer'    => app(\App\Modules\Finance\Services\PlatformFeeService::class)->breakdown((float) $this->amount, 'job')['net'],
             'reference'        => $this->reference,
             'external_pdf_ref' => $this->external_pdf_ref,
             'status'           => $this->status,

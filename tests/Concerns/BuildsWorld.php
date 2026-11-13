@@ -45,8 +45,8 @@ trait BuildsWorld
     protected function fund(User $user, float $amount): Wallet
     {
         $wallet = Wallet::firstOrCreate(
-            ['user_id' => $user->id],
-            ['id' => (string) Str::uuid(), 'balance' => 0, 'currency' => 'XAF']
+            ['user_id' => $user->id, 'currency' => 'XAF'],
+            ['id' => (string) Str::uuid(), 'balance' => 0]
         );
         $wallet->forceFill(['balance' => $amount])->save();
 
@@ -55,7 +55,7 @@ trait BuildsWorld
 
     protected function balanceOf(User $user): float
     {
-        return (float) Wallet::where('user_id', $user->id)->value('balance');
+        return (float) Wallet::xaf()->where('user_id', $user->id)->value('balance');
     }
 
     protected function plumbingSkill(): Skill
