@@ -220,4 +220,18 @@ class MissionWorkflowTest extends TestCase
         $titles = collect($this->actingAs($client, 'sanctum')->getJson('/api/v1/notifications')->json('data'))->pluck('title');
         $this->assertNotEmpty($titles);
     }
+
+    public function test_le_suivi_expose_la_demande_et_n_est_visible_que_des_parties(): void
+    {
+        $client = $this->makeUser('client');
+        $tech = $this->makeTechnician();
+        $tiers = $this->makeUser('client');
+        [$request] = $this->assignedMission($client, $tech);
+        $jobId = $this->actingAs($tech, 'sanctum')->postJson('/api/v1/jobs', ['request_id' => $request->id])->json('data.id');
+
+        $this->actingAs($client, 'sanctum')->getJson("/api/v1/jobs/{$jobId}/tracking")
+            ->assertOk()->assertJsonPath('data.request_id', $request->id)->assertJsonPath('data.technician.id', $tech->id);
+        $this->actingAs($tech, 'sanctum')->getJson("/api/v1/jobs/{$jobId}/tracking")->assertOk();
+        $this->actingAs($tiers, 'sanctum')->getJson("/api/v1/jobs/{$jobId}/tracking")->assertForbidden();
+    }
 }

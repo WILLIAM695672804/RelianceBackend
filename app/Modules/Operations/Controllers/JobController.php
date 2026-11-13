@@ -170,6 +170,7 @@ class JobController extends Controller
             'status' => 'success',
             'data' => [
                 'job_id'     => $job->id,
+                'request_id' => $job->request_id,
                 'status'     => $job->status,
                 'phases'     => $job->phases,
                 'route'      => $job->route,
