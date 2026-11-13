@@ -24,8 +24,14 @@ class SlaEventController extends Controller
         ], 201);
     }
 
-    public function index(string $requestId)
+    public function index(Request $request, string $requestId)
     {
+        // Lecture réservée à l'administrateur et aux deux parties de la demande.
+        $demande = \App\Modules\Matching\Models\ClientRequest::findOrFail($requestId);
+        $user = $request->user();
+        $technicienId = \App\Modules\Matching\Models\Proposal::where('request_id', $demande->id)->where('status', 'accepted')->value('technician_id');
+        abort_unless($user->hasRole('admin') || $demande->client_id === $user->id || $technicienId === $user->id, 403);
+
         $events = SlaEvent::where('request_id', $requestId)
             ->orderBy('occurred_at', 'desc')
             ->get();

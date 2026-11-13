@@ -10,7 +10,6 @@ use App\Modules\Governance\Controllers\DisputeController;
 Route::middleware('auth:sanctum')->group(function () {
 
     // ── SLA Events (authenticated users) ───────────────────
-    Route::post('/sla-events', [SlaEventController::class, 'store']);
     Route::get('/sla-events/mine', [SlaEventController::class, 'mine']);
     Route::get('/sla-events/request/{requestId}', [SlaEventController::class, 'index']);
 
@@ -22,6 +21,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Admin-only routes ──────────────────────────────────
     Route::middleware('role:admin')->group(function () {
+        // Création d'un événement SLA (déclenche des pénalités de réputation) : administrateur uniquement.
+        Route::post('/sla-events', [SlaEventController::class, 'store']);
+
 
         // SLA Rules
         Route::prefix('sla-rules')->group(function () {
