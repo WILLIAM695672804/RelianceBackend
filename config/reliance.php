@@ -17,4 +17,7 @@ return [
         'email' => env('ADMIN_EMAIL'),
         'password' => env('ADMIN_PASSWORD'),
     ],
+
+    // Mandataires de confiance (IP/CIDR séparées par des virgules, ou « * ») : voir TrustProxies.
+    'trusted_proxies' => env('TRUSTED_PROXIES'),
 ];

@@ -21,11 +21,12 @@ return [
 
     // On autorise 127.0.0.1 ET localhost pour éviter les blocages CORS selon l'URL ouverte.
     // (La session ne persiste toutefois qu'en restant sur un seul hôte — voir 127.0.0.1.)
-    'allowed_origins' => array_values(array_unique(array_filter([
-        env('FRONTEND_URL', 'http://127.0.0.1:5173'),
-        'http://127.0.0.1:5173',
-        'http://localhost:5173',
-    ]))),
+    // Les origines du serveur Vite ne sont admises qu'en développement : avec supports_credentials,
+    // toute origine listée peut émettre des requêtes authentifiées par cookie.
+    'allowed_origins' => array_values(array_unique(array_filter(array_merge(
+        [env('FRONTEND_URL', 'http://127.0.0.1:5173')],
+        env('APP_ENV') === 'local' ? ['http://127.0.0.1:5173', 'http://localhost:5173'] : [],
+    )))),
 
     'allowed_origins_patterns' => [],
 
