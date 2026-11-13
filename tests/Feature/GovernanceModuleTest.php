@@ -123,6 +123,7 @@ class GovernanceModuleTest extends TestCase
         // Un événement SLA déclenche des pénalités : ni le client ni un tiers ne peuvent en créer.
         $this->withHeader('Authorization', "Bearer {$this->clientToken}")->postJson('/api/v1/sla-events', $payload)->assertStatus(403);
 
+        $this->app['auth']->forgetGuards(); // la garde mémorise l'utilisateur de la requête précédente
         $this->withHeader('Authorization', "Bearer {$this->adminToken}")->postJson('/api/v1/sla-events', $payload)
             ->assertStatus(201)->assertJsonPath('data.event_key', 'late_cancellation');
     }
