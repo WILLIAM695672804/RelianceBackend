@@ -11,4 +11,10 @@ return [
 
     // Durée maximale d'une connexion SSE (secondes) avant fermeture et reconnexion du client.
     'sse_max_seconds' => (int) env('SSE_MAX_SECONDS', 300),
+
+    // Administrateur initial créé par AdminUserSeeder (mot de passe obligatoire hors développement).
+    'admin' => [
+        'email' => env('ADMIN_EMAIL'),
+        'password' => env('ADMIN_PASSWORD'),
+    ],
 ];
