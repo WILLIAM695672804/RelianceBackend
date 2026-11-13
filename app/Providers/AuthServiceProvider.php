@@ -24,7 +24,8 @@ class AuthServiceProvider extends ServiceProvider
     {
         // Le lien de réinitialisation pointe vers le FRONTEND (SPA), pas vers l'API.
         ResetPassword::createUrlUsing(function ($notifiable, string $token) {
-            $base = rtrim(env('FRONTEND_URL', 'http://127.0.0.1:5173'), '/');
+            // config() et non env() : env() renvoie null hors des fichiers de configuration une fois celle-ci en cache.
+            $base = rtrim((string) config('app.frontend_url'), '/');
             return $base . '/reset-password?token=' . $token . '&email=' . urlencode($notifiable->getEmailForPasswordReset());
         });
     }
