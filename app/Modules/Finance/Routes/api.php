@@ -17,6 +17,11 @@ Route::post('webhooks/notchpay', [WebhookController::class, 'notchpay']);
 Route::middleware(['auth:sanctum'])->group(function () {
 
     // ── Wallet ──────────────────────────────────────────────
+    // Frais de diagnostic
+    Route::post('requests/{id}/diagnostic', [\App\Modules\Finance\Controllers\DiagnosticController::class, 'store']);
+    Route::get('requests/{id}/diagnostic', [\App\Modules\Finance\Controllers\DiagnosticController::class, 'show']);
+    Route::post('diagnostics/{id}/pay', [\App\Modules\Finance\Controllers\DiagnosticController::class, 'pay']);
+
     Route::get('wallet', [WalletController::class, 'show']);
     Route::get('wallets', [WalletController::class, 'index']);
     Route::post('wallets/convert', [WalletController::class, 'convert']);

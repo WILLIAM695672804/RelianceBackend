@@ -36,9 +36,9 @@ class EscrowService
     /**
      * Capture a hold — debit payer, credit payee (minus platform fees), mark hold as captured.
      */
-    public function captureHold(string $holdId, string $payeeId, string $method): Payment
+    public function captureHold(string $holdId, string $payeeId, string $method, string $appliesTo = 'job'): Payment
     {
-        return DB::transaction(function () use ($holdId, $payeeId, $method) {
+        return DB::transaction(function () use ($holdId, $payeeId, $method, $appliesTo) {
             $hold = Hold::where('id', $holdId)->lockForUpdate()->firstOrFail();
             if ($hold->status !== 'held') {
                 throw new \DomainException('Hold not in held state');
@@ -52,7 +52,7 @@ class EscrowService
             $payeeWallet = Wallet::xaf()->where('user_id', $payeeId)->lockForUpdate()->firstOrFail();
 
             // Frais de plateforme (jamais supérieurs au montant : net du bénéficiaire ≥ 0).
-            $fees = app(PlatformFeeService::class)->forAmount((float) $hold->amount, 'job');
+            $fees = app(PlatformFeeService::class)->forAmount((float) $hold->amount, $appliesTo);
             $netAmount = $hold->amount - $fees;
 
             $payment = Payment::create([
@@ -88,7 +88,7 @@ class EscrowService
             ]);
 
             if ($fees > 0) {
-                PlatformRevenue::create(['payment_id' => $payment->id, 'source' => 'job_commission', 'amount' => $fees, 'currency' => $payerWallet->currency]);
+                PlatformRevenue::create(['payment_id' => $payment->id, 'source' => $appliesTo . '_commission', 'amount' => $fees, 'currency' => $payerWallet->currency]);
             }
 
             $hold->update([
