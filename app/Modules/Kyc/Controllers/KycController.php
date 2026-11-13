@@ -31,6 +31,7 @@ class KycController extends Controller
             'user_id' => auth()->id(),
             'type' => $request->type,
             'file_path' => $path,
+            'status' => 'pending',
         ]);
 
         return response()->json([
@@ -77,7 +78,8 @@ class KycController extends Controller
     {
         $request->validate([
             'status' => 'required|in:approved,rejected',
-            'rejection_reason' => 'nullable|string',
+            // Un rejet doit être motivé : le demandeur doit savoir quoi corriger.
+            'rejection_reason' => 'required_if:status,rejected|nullable|string',
         ]);
 
         $doc = KycDocument::findOrFail($id);
