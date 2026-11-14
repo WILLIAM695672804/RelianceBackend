@@ -122,6 +122,12 @@ construire_et_demarrer() {
     echo "  et la compilation de l'interface sont les deux étapes longues."
     composer_ build
 
+    # Avant le démarrage, et dans un seul conteneur : le manifeste des paquets
+    # n'est pas dans l'image. Sans cette passe, les quatre conteneurs PHP le
+    # régénéreraient en même temps, dans le même volume.
+    titre "Découverte des paquets"
+    composer_ run --rm -T api php artisan package:discover --ansi
+
     titre "Démarrage"
     composer_ up -d
     vert "  services démarrés"

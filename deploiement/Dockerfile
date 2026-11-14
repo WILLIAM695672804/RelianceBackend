@@ -37,7 +37,13 @@ RUN composer install --no-dev --no-scripts --no-autoloader \
         --prefer-dist --no-interaction --no-progress
 
 COPY . .
-RUN composer dump-autoload --optimize --no-dev --classmap-authoritative \
+# « --no-scripts » : sans lui, composer déclenche « package:discover », qui
+# amorce Laravel. Or l'image ne contient aucun secret — la composition les
+# fournit à l'exécution —, et l'amorçage échoue sur
+# « Pusher::__construct(): Argument #1 ($auth_key) must be of type string,
+# null given ». La découverte des paquets a lieu au déploiement, une fois les
+# réglages connus, et son résultat va dans le volume bootstrap/cache.
+RUN composer dump-autoload --optimize --no-dev --classmap-authoritative --no-scripts \
     && rm -rf tests .github docs
 
 COPY deploiement/php.ini /usr/local/etc/php/conf.d/reliance.ini
