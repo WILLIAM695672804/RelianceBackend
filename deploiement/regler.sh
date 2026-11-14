@@ -55,10 +55,22 @@ sans_espace() {
 secret() {             # secret <invite>  — saisie masquée, obligatoire
     local valeur
     while :; do
-        printf "  %s : " "$1"
-        read -rs valeur </dev/tty; echo
-        [ -n "$valeur" ] && { printf '%s' "$valeur"; return; }
-        rouge "  Obligatoire. Recommencez."
+        # Un guillemet double ou une contre-oblique casserait le .env, qui est
+        # lu aussi bien par docker compose que par Laravel. Mieux vaut le dire
+        # ici que laisser un fichier illisible.
+        :
+        # Sur la sortie d'erreur : cette fonction est appelée depuis une
+        # substitution de commande, qui capture la sortie standard. L'invite
+        # écrite là ne s'afficherait pas et finirait dans la valeur — le .env
+        # portait « MAIL_PASSWORD=  Mot de passe SMTP : … » sur plusieurs
+        # lignes, et docker compose refusait le fichier.
+        printf "  %s : " "$1" >&2
+        read -rs valeur </dev/tty; echo >&2
+        case "$valeur" in
+            '')      rouge "  Obligatoire. Recommencez."; continue ;;
+            *[\"\\]*) rouge "  Ni guillemet double ni contre-oblique ici. Recommencez."; continue ;;
+        esac
+        printf '%s' "$valeur"; return
     done
 }
 
@@ -83,7 +95,10 @@ vert "  chiffrement : $MAIL_ENCRYPTION"
 
 MAIL_USERNAME=$(sans_espace "Compte SMTP" "")
 MAIL_PASSWORD=$(secret "Mot de passe SMTP")
-MAIL_FROM_ADDRESS=$(sans_espace "Adresse d'expédition" "no-reply@$DOMAINE")
+# Par défaut le compte SMTP lui-même : la plupart des serveurs refusent
+# d'expédier sous une adresse qui n'est pas celle du compte authentifié, et
+# « no-reply@reliance.the7ing.site » n'est pas une boîte qui existe.
+MAIL_FROM_ADDRESS=$(sans_espace "Adresse d'expédition" "$MAIL_USERNAME")
 
 titre "Paiements"
 echo "  En préproduction, le parcours de paiement se déroule en entier sans"
@@ -166,15 +181,15 @@ vert "  mot de passe de la base, clés Reverb et APP_KEY"
     echo "MAIL_HOST=$MAIL_HOST"
     echo "MAIL_PORT=$MAIL_PORT"
     echo "MAIL_USERNAME=$MAIL_USERNAME"
-    echo "MAIL_PASSWORD=$MAIL_PASSWORD"
+    echo "MAIL_PASSWORD=\"$MAIL_PASSWORD\""
     echo "MAIL_ENCRYPTION=$MAIL_ENCRYPTION"
     echo "MAIL_FROM_ADDRESS=$MAIL_FROM_ADDRESS"
     echo "MAIL_FROM_NAME=Reliance"
     echo
     echo "NOTCHPAY_BASE_URL=https://api.notchpay.co"
     echo "NOTCHPAY_PUBLIC_KEY=$NOTCHPAY_PUBLIC_KEY"
-    echo "NOTCHPAY_PRIVATE_KEY=$NOTCHPAY_PRIVATE_KEY"
-    echo "NOTCHPAY_HASH_KEY=$NOTCHPAY_HASH_KEY"
+    echo "NOTCHPAY_PRIVATE_KEY=\"$NOTCHPAY_PRIVATE_KEY\""
+    echo "NOTCHPAY_HASH_KEY=\"$NOTCHPAY_HASH_KEY\""
     echo "PAIEMENT_SIMULE=$PREPRODUCTION"
     echo "PAIEMENT_SIMULE_DELAI_S=5"
     echo "PREPRODUCTION=$PREPRODUCTION"
@@ -187,7 +202,7 @@ vert "  mot de passe de la base, clés Reverb et APP_KEY"
     echo "REQUIRE_2FA_CLIENTS=true"
     echo "SSE_MAX_SECONDS=300"
     echo "ADMIN_EMAIL=$ADMIN_EMAIL"
-    echo "ADMIN_PASSWORD=$ADMIN_PASSWORD"
+    echo "ADMIN_PASSWORD=\"$ADMIN_PASSWORD\""
 } > .env
 chmod 600 .env
 
