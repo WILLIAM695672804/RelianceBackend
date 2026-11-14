@@ -227,7 +227,7 @@ etat() {
         # Ce squelette n'a pas la route « /up » de Laravel 11 ; on interroge
         # celle que l'interface appelle de toute façon avant de se connecter.
         code=$(curl -sS --max-time 15 -o /dev/null -w '%{http_code}' \
-                    "https://$domaine/sanctum/csrf-cookie" 2>/dev/null || echo 000)
+                    "https://$domaine/sanctum/csrf-cookie" 2>/dev/null || true)
         case "$code" in
             200|204) vert  "  HTTPS $code — certificat obtenu, application joignable" ;;
             000) rouge "  HTTPS : aucune réponse. Le certificat peut demander une minute." ;;
