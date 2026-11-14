@@ -68,8 +68,20 @@ class ProductionPreflightCommand extends Command
 
     private function verifierServicesExternes(): void
     {
-        $this->exiger(!empty(config('services.notchpay.private_key')), 'NOTCHPAY_PRIVATE_KEY est absente.');
-        $this->exiger(!empty(config('services.notchpay.hash_key')), 'NOTCHPAY_HASH_KEY est absente (webhooks refusés).');
+        // Préproduction : le parcours de paiement tourne sur SimulationGateway,
+        // sans compte marchand. Les clés NotchPay n'ont alors pas lieu d'être —
+        // mais ce réglage doit être déclaré, jamais subi : un serveur qui croit
+        // encaisser et ne fait que simuler est la pire des pannes silencieuses.
+        if (config('services.paiement_simule.actif')) {
+            $this->exiger(
+                (bool) env('PREPRODUCTION', false),
+                'PAIEMENT_SIMULE est actif sans PREPRODUCTION=true : aucun paiement ne serait réellement encaissé.'
+            );
+            $this->avertissements[] = 'Paiements SIMULÉS : aucun débit réel, aucun appel à NotchPay.';
+        } else {
+            $this->exiger(!empty(config('services.notchpay.private_key')), 'NOTCHPAY_PRIVATE_KEY est absente.');
+            $this->exiger(!empty(config('services.notchpay.hash_key')), 'NOTCHPAY_HASH_KEY est absente (webhooks refusés).');
+        }
 
         $mailer = config('mail.default');
         $hote = (string) config("mail.mailers.{$mailer}.host", '');

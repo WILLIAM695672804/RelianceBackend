@@ -32,6 +32,13 @@ return [
     ],
 
     // Agrégateur de paiement NotchPay (MTN MoMo, Orange Money, carte)
+    // Préproduction : le parcours de paiement se déroule en entier, sans
+    // compte marchand ni argent. Voir SimulationGateway.
+    'paiement_simule' => [
+        'actif' => env('PAIEMENT_SIMULE', false),
+        'delai_secondes' => env('PAIEMENT_SIMULE_DELAI_S', 5),
+    ],
+
     'notchpay' => [
         'base_url' => env('NOTCHPAY_BASE_URL', 'https://api.notchpay.co'),
         'public_key' => env('NOTCHPAY_PUBLIC_KEY'),

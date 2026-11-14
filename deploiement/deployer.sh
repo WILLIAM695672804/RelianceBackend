@@ -45,10 +45,17 @@ verifier_prealables() {
 
     set -a; . ./.env; set +a
     local manquantes=()
-    for nom in DOMAINE APP_KEY DB_PASSWORD PUSHER_APP_KEY PUSHER_APP_SECRET \
-               MAIL_HOST NOTCHPAY_PRIVATE_KEY NOTCHPAY_HASH_KEY; do
+    for nom in DOMAINE APP_KEY DB_PASSWORD PUSHER_APP_KEY PUSHER_APP_SECRET MAIL_HOST; do
         [ -n "${!nom:-}" ] || manquantes+=("$nom")
     done
+    # Les clés de paiement ne sont exigées que si l'on encaisse pour de bon.
+    if [ "${PAIEMENT_SIMULE:-false}" = true ]; then
+        vert "  paiements SIMULÉS — aucun débit réel, aucun appel à NotchPay"
+    else
+        for nom in NOTCHPAY_PRIVATE_KEY NOTCHPAY_HASH_KEY; do
+            [ -n "${!nom:-}" ] || manquantes+=("$nom")
+        done
+    fi
     [ ${#manquantes[@]} -eq 0 ] || {
         rouge "Réglages manquants dans .env : ${manquantes[*]}"
         echo "    bash deploiement/regler.sh --forcer"

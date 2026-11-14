@@ -74,12 +74,29 @@ MAIL_USERNAME=$(sans_espace "Compte SMTP" "")
 MAIL_PASSWORD=$(secret "Mot de passe SMTP")
 MAIL_FROM_ADDRESS=$(sans_espace "Adresse d'expédition" "no-reply@$DOMAINE")
 
-titre "NotchPay — obligatoire"
-echo "  Les clés se prennent sur business.notchpay.co. Sans la clé de"
-echo "  signature, les webhooks sont refusés et aucun paiement n'est confirmé."
-NOTCHPAY_PUBLIC_KEY=$(sans_espace "Clé publique" "")
-NOTCHPAY_PRIVATE_KEY=$(secret "Clé privée")
-NOTCHPAY_HASH_KEY=$(secret "Clé de signature des webhooks")
+titre "Paiements"
+echo "  En préproduction, le parcours de paiement se déroule en entier sans"
+echo "  compte marchand ni argent : un paiement part « en attente », comme un"
+echo "  push USSD, puis se confirme au bout de quelques secondes."
+reponse=$(demander "Simuler les paiements ? (o/n)" "o")
+case "$reponse" in
+    [oO]*) PREPRODUCTION=true ;;
+    *)     PREPRODUCTION=false ;;
+esac
+
+NOTCHPAY_PUBLIC_KEY=""
+NOTCHPAY_PRIVATE_KEY=""
+NOTCHPAY_HASH_KEY=""
+if [ "$PREPRODUCTION" = false ]; then
+    titre "NotchPay — obligatoire"
+    echo "  Les clés se prennent sur business.notchpay.co. Sans la clé de"
+    echo "  signature, les webhooks sont refusés et aucun paiement n'est confirmé."
+    NOTCHPAY_PUBLIC_KEY=$(sans_espace "Clé publique" "")
+    NOTCHPAY_PRIVATE_KEY=$(secret "Clé privée")
+    NOTCHPAY_HASH_KEY=$(secret "Clé de signature des webhooks")
+else
+    vert "  paiements simulés : aucune clé NotchPay nécessaire"
+fi
 
 titre "Premier administrateur"
 ADMIN_EMAIL=$(sans_espace "Adresse de l'administrateur" "")
@@ -147,6 +164,9 @@ vert "  mot de passe de la base, clés Reverb et APP_KEY"
     echo "NOTCHPAY_PUBLIC_KEY=$NOTCHPAY_PUBLIC_KEY"
     echo "NOTCHPAY_PRIVATE_KEY=$NOTCHPAY_PRIVATE_KEY"
     echo "NOTCHPAY_HASH_KEY=$NOTCHPAY_HASH_KEY"
+    echo "PAIEMENT_SIMULE=$PREPRODUCTION"
+    echo "PAIEMENT_SIMULE_DELAI_S=5"
+    echo "PREPRODUCTION=$PREPRODUCTION"
     echo
     echo "SMS_DRIVER=log"
     echo "SMS_SENDER=Reliance"

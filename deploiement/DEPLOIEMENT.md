@@ -32,6 +32,15 @@ Trois choses ne s'improvisent pas au moment du déploiement :
 |---|---|---|
 | Compte SMTP | vérification d'adresse, réinitialisation de mot de passe | `reliance:verifier-production` refuse le déploiement |
 | Clés NotchPay (`business.notchpay.co`) : publique, privée, signature | encaissement et webhooks | idem ; et sans la clé de signature, tout webhook est refusé (503) |
+
+**En préproduction, les clés NotchPay ne sont pas nécessaires.** `regler.sh`
+propose de simuler les paiements : le parcours se déroule en entier — un
+paiement part « en attente », comme un push USSD, puis se confirme au bout de
+cinq secondes et crédite le portefeuille —, sans compte marchand, sans argent
+et sans webhook venu de l'extérieur. Les références portent le préfixe `SIM-`,
+reconnaissables d'un coup d'œil en base. `PREPRODUCTION=true` doit alors être
+déclaré : `reliance:verifier-production` refuse un serveur qui simulerait sans
+le dire.
 | Enregistrement DNS `A` pour `reliance` vers l'IP du serveur | certificat Let's Encrypt | le script s'arrête avant de construire |
 
 Le DNS se règle chez LWS, rubrique **Zone DNS** — jamais « Sous-domaines », qui
