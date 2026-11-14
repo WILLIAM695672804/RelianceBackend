@@ -69,7 +69,18 @@ echo "  Sans SMTP réel, aucune vérification d'adresse ni réinitialisation de"
 echo "  mot de passe n'atteint l'utilisateur, et production:preflight refuse"
 echo "  le déploiement."
 MAIL_HOST=$(sans_espace "Serveur SMTP" "")
-MAIL_PORT=$(sans_espace "Port SMTP" "587")
+MAIL_PORT=$(sans_espace "Port SMTP (465 pour SSL, 587 pour STARTTLS)" "465")
+
+# Le port décide du chiffrement, et les confondre donne un échec de
+# négociation TLS qui ne nomme jamais sa cause : 465 ouvre une liaison déjà
+# chiffrée, 587 commence en clair et bascule par STARTTLS.
+if [ "$MAIL_PORT" = "465" ]; then
+    MAIL_ENCRYPTION=ssl
+else
+    MAIL_ENCRYPTION=tls
+fi
+vert "  chiffrement : $MAIL_ENCRYPTION"
+
 MAIL_USERNAME=$(sans_espace "Compte SMTP" "")
 MAIL_PASSWORD=$(secret "Mot de passe SMTP")
 MAIL_FROM_ADDRESS=$(sans_espace "Adresse d'expédition" "no-reply@$DOMAINE")
@@ -156,7 +167,7 @@ vert "  mot de passe de la base, clés Reverb et APP_KEY"
     echo "MAIL_PORT=$MAIL_PORT"
     echo "MAIL_USERNAME=$MAIL_USERNAME"
     echo "MAIL_PASSWORD=$MAIL_PASSWORD"
-    echo "MAIL_ENCRYPTION=tls"
+    echo "MAIL_ENCRYPTION=$MAIL_ENCRYPTION"
     echo "MAIL_FROM_ADDRESS=$MAIL_FROM_ADDRESS"
     echo "MAIL_FROM_NAME=Reliance"
     echo
