@@ -130,6 +130,14 @@ construire_et_demarrer() {
 
     titre "Démarrage"
     composer_ up -d
+
+    # nginx.conf est monté comme fichier unique, et « git pull » ne modifie pas
+    # un fichier : il le remplace, donc change son inode. Le montage reste
+    # accroché à l'ancien, et « up -d » ne juge rien modifié — le conteneur
+    # garde sa configuration d'avant, redémarrage compris. Le recréer est la
+    # seule façon de remonter le fichier ; cela coûte deux secondes
+    # d'interruption de l'interface, et rien pour l'autre application.
+    composer_ up -d --force-recreate web
     vert "  services démarrés"
 }
 
