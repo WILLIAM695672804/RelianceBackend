@@ -95,6 +95,15 @@ la compilation de l'interface sont longues sur deux cœurs ARM.
 bash deploiement/deployer.sh --etat
 ```
 
+Le SMTP mérite un essai à part : le mot de passe est saisi une fois, en
+aveugle, et une faute de frappe ne se verrait qu'à la première inscription,
+sous la forme d'un courriel qui n'arrive jamais.
+
+```bash
+docker compose --env-file .env -f deploiement/docker-compose.production.yml \
+    run --rm -T api php artisan reliance:tester-courriel vous@exemple.com
+```
+
 Puis ouvrir `https://reliance.the7ing.site`.
 
 ## Mémoire : le point à surveiller
