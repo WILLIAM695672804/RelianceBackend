@@ -32,7 +32,19 @@ fi
 
 command -v openssl >/dev/null || { rouge "openssl absent : apk/apt install openssl"; exit 1; }
 
+# Valeur d'une clé dans le .env existant, guillemets retirés. Elle sert de
+# proposition : on ne redemande pas ce qui est déjà su.
+ANCIEN=""
+[ -f .env ] && ANCIEN=.env
+[ -z "$ANCIEN" ] && [ -f .env.precedent ] && ANCIEN=.env.precedent
+
+lire_ancien() {        # lire_ancien <clé>
+    [ -n "$ANCIEN" ] || return 0
+    sed -n "s/^$1=//p" "$ANCIEN" | head -1 | sed -e 's/^"//' -e 's/"$//'
+}
+
 titre "Réglages de Reliance en production"
+[ -n "$ANCIEN" ] && vert "  valeurs reprises de $ANCIEN — « Entrée » les conserve"
 
 demander() {           # demander <invite> <défaut>
     local reponse
@@ -50,6 +62,23 @@ sans_espace() {
             *)          printf '%s' "$valeur"; return ;;
         esac
     done
+}
+
+secret_ou_conserver() {   # secret_ou_conserver <invite> <clé du .env>
+    local actuel
+    actuel=$(lire_ancien "$2")
+    if [ -n "$actuel" ]; then
+        printf "  %s [inchangé] : " "$1" >&2
+        local valeur
+        read -rs valeur </dev/tty; echo >&2
+        [ -z "$valeur" ] && { printf '%s' "$actuel"; return; }
+        case "$valeur" in
+            *[\"\\]*) rouge "  Ni guillemet double ni contre-oblique. Valeur inchangée."
+                     printf '%s' "$actuel"; return ;;
+        esac
+        printf '%s' "$valeur"; return
+    fi
+    secret "$1"
 }
 
 secret() {             # secret <invite>  — saisie masquée, obligatoire
@@ -74,14 +103,14 @@ secret() {             # secret <invite>  — saisie masquée, obligatoire
     done
 }
 
-DOMAINE=$(sans_espace "Nom de domaine" "reliance.the7ing.site")
+DOMAINE=$(sans_espace "Nom de domaine" "$(lire_ancien DOMAINE || echo reliance.the7ing.site)")
 
 titre "Courriel — obligatoire"
 echo "  Sans SMTP réel, aucune vérification d'adresse ni réinitialisation de"
 echo "  mot de passe n'atteint l'utilisateur, et production:preflight refuse"
 echo "  le déploiement."
-MAIL_HOST=$(sans_espace "Serveur SMTP" "")
-MAIL_PORT=$(sans_espace "Port SMTP (465 pour SSL, 587 pour STARTTLS)" "465")
+MAIL_HOST=$(sans_espace "Serveur SMTP" "$(lire_ancien MAIL_HOST)")
+MAIL_PORT=$(sans_espace "Port SMTP (465 pour SSL, 587 pour STARTTLS)" "$(lire_ancien MAIL_PORT || echo 465)")
 
 # Le port décide du chiffrement, et les confondre donne un échec de
 # négociation TLS qui ne nomme jamais sa cause : 465 ouvre une liaison déjà
@@ -93,8 +122,8 @@ else
 fi
 vert "  chiffrement : $MAIL_ENCRYPTION"
 
-MAIL_USERNAME=$(sans_espace "Compte SMTP" "")
-MAIL_PASSWORD=$(secret "Mot de passe SMTP")
+MAIL_USERNAME=$(sans_espace "Compte SMTP" "$(lire_ancien MAIL_USERNAME)")
+MAIL_PASSWORD=$(secret_ou_conserver "Mot de passe SMTP" MAIL_PASSWORD)
 # Par défaut le compte SMTP lui-même : la plupart des serveurs refusent
 # d'expédier sous une adresse qui n'est pas celle du compte authentifié, et
 # « no-reply@reliance.the7ing.site » n'est pas une boîte qui existe.
@@ -117,28 +146,46 @@ if [ "$PREPRODUCTION" = false ]; then
     titre "NotchPay — obligatoire"
     echo "  Les clés se prennent sur business.notchpay.co. Sans la clé de"
     echo "  signature, les webhooks sont refusés et aucun paiement n'est confirmé."
-    NOTCHPAY_PUBLIC_KEY=$(sans_espace "Clé publique" "")
-    NOTCHPAY_PRIVATE_KEY=$(secret "Clé privée")
-    NOTCHPAY_HASH_KEY=$(secret "Clé de signature des webhooks")
+    NOTCHPAY_PUBLIC_KEY=$(sans_espace "Clé publique" "$(lire_ancien NOTCHPAY_PUBLIC_KEY)")
+    NOTCHPAY_PRIVATE_KEY=$(secret_ou_conserver "Clé privée" NOTCHPAY_PRIVATE_KEY)
+    NOTCHPAY_HASH_KEY=$(secret_ou_conserver "Clé de signature des webhooks" NOTCHPAY_HASH_KEY)
 else
     vert "  paiements simulés : aucune clé NotchPay nécessaire"
 fi
 
 titre "Premier administrateur"
-ADMIN_EMAIL=$(sans_espace "Adresse de l'administrateur" "")
-ADMIN_PASSWORD=$(secret "Mot de passe de l'administrateur")
+ADMIN_EMAIL=$(sans_espace "Adresse de l'administrateur" "$(lire_ancien ADMIN_EMAIL)")
+ADMIN_PASSWORD=$(secret_ou_conserver "Mot de passe de l'administrateur" ADMIN_PASSWORD)
 
-titre "Secrets engendrés"
+titre "Secrets"
+# Conservés s'ils existent, engendrés sinon. Les réengendrer serait grave :
+#   — DB_PASSWORD est déjà inscrit dans le volume de PostgreSQL, qui ne le
+#     relit jamais : un nouveau mot de passe ferait refuser toute connexion ;
+#   — APP_KEY chiffre les sessions et les jetons en base, qui deviendraient
+#     indéchiffrables ;
+#   — PUSHER_APP_KEY est compilée dans l'interface : il faudrait la rebâtir.
+#
 # « -hex » et non « -base64 » : ces valeurs voyagent dans des URL de connexion
 # et dans des fichiers lus par le shell, où « / » et « + » posent problème.
-DB_PASSWORD=$(openssl rand -hex 24)
-PUSHER_APP_ID=$(openssl rand -hex 8)
-PUSHER_APP_KEY=$(openssl rand -hex 16)
-PUSHER_APP_SECRET=$(openssl rand -hex 24)
-# APP_KEY : Laravel attend 32 octets en base64. La commande « key:generate »
-# ferait la même chose, mais elle exige PHP, absent de l'hôte.
-APP_KEY="base64:$(openssl rand -base64 32)"
-vert "  mot de passe de la base, clés Reverb et APP_KEY"
+engendrer() {          # engendrer <clé> <commande d'engendrement>
+    local actuel
+    actuel=$(lire_ancien "$1")
+    if [ -n "$actuel" ]; then
+        printf '%s' "$actuel"
+        echo "  $1 : conservé" >&2
+    else
+        eval "$2"
+        echo "  $1 : engendré" >&2
+    fi
+}
+
+DB_PASSWORD=$(engendrer DB_PASSWORD 'openssl rand -hex 24')
+PUSHER_APP_ID=$(engendrer PUSHER_APP_ID 'openssl rand -hex 8')
+PUSHER_APP_KEY=$(engendrer PUSHER_APP_KEY 'openssl rand -hex 16')
+PUSHER_APP_SECRET=$(engendrer PUSHER_APP_SECRET 'openssl rand -hex 24')
+# APP_KEY : Laravel attend 32 octets en base64. « key:generate » ferait la
+# même chose, mais elle exige PHP, absent de l'hôte.
+APP_KEY=$(engendrer APP_KEY 'printf "base64:%s" "$(openssl rand -base64 32)"')
 
 [ -f .env ] && cp -f .env .env.precedent
 
