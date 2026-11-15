@@ -10,7 +10,9 @@ use Illuminate\Support\Facades\Cache;
 class PositionController extends Controller
 {
     /**
-     * Technician updates their live GPS position (called every ~10s).
+     * POST /v1/position/update — position GPS du technicien.
+     * Appelée à chaque déplacement détecté par le navigateur (watchPosition), et toutes les 30 s
+     * par le cockpit même à l'arrêt : sans ce signal, la position expirait au bout de 5 minutes.
      */
     public function update(Request $request)
     {
@@ -26,9 +28,10 @@ class PositionController extends Controller
             'updated_at' => now()->toIso8601String(),
         ], now()->addMinutes(5));
 
-        // Find active job for this technician and broadcast position
+        // Diffusion en direct au client tant que le technicien est en route, arrivé ou en intervention
+        // (« arrived » manquait : la position cessait d'être diffusée à l'arrivée).
         $activeJob = \App\Modules\Operations\Models\TechnicianJob::where('technician_id', $request->user()->id)
-            ->whereIn('status', ['in_progress', 'en_route'])
+            ->whereIn('status', ['en_route', 'arrived', 'in_progress'])
             ->first();
 
         if ($activeJob) {
