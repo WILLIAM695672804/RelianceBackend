@@ -23,7 +23,6 @@ class TwoFactorEnforcementTest extends TestCase
         return [
             ['post', '/api/v1/wallet/recharge', ['amount' => 1000, 'method' => 'bank_transfer']],
             ['post', '/api/v1/wallet/withdraw', ['amount' => 1000, 'method' => 'bank_transfer']],
-            ['post', '/api/v1/wallets/convert', ['amount' => 1, 'from_currency' => 'XAF', 'to_currency' => 'EUR']],
             ['post', "/api/v1/invoices/{$id}/pay", []],
             ['post', "/api/v1/diagnostics/{$id}/pay", []],
             ['post', '/api/v1/credits/purchase', []],

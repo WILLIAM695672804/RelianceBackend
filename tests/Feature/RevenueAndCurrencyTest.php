@@ -10,6 +10,7 @@ use App\Modules\Finance\Models\Wallet;
 use App\Modules\Finance\Services\EscrowService;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Tests\Concerns\BuildsWorld;
 use Tests\TestCase;
@@ -100,70 +101,59 @@ class RevenueAndCurrencyTest extends TestCase
         $this->assertEqualsWithDelta(10800, $facture['net_to_issuer'], 0.01);
     }
 
-    // ── Portefeuilles multi-devises ────────────────────────
+    // ── Portefeuille unique, équivalents en devises ────────
+    // Cahier des charges : un seul portefeuille par utilisateur, en XAF ; l'achat de crédit dans une
+    // autre devise est converti au taux de l'administrateur (§4.4). Les portefeuilles par devise et la
+    // conversion entre eux (ajoutés le 2026-11-13, hors cahier) ont été retirés.
 
-    public function test_chaque_utilisateur_dispose_d_un_portefeuille_par_devise(): void
+    public function test_chaque_utilisateur_n_a_qu_un_portefeuille_en_xaf(): void
     {
         $user = $this->makeUser('client');
 
-        $devises = collect($this->actingAs($user, 'sanctum')->getJson('/api/v1/wallets')->assertOk()->json('data'))->pluck('currency')->sort()->values()->all();
+        $this->actingAs($user, 'sanctum')->getJson('/api/v1/wallet')->assertOk()->assertJsonPath('data.currency', 'XAF');
 
-        $this->assertSame(['EUR', 'USD', 'XAF'], $devises);
-        $this->assertSame(3, Wallet::where('user_id', $user->id)->count());
+        $this->assertSame(['XAF'], Wallet::where('user_id', $user->id)->pluck('currency')->all());
     }
 
-    public function test_les_operations_courantes_restent_sur_le_portefeuille_xaf(): void
+    public function test_un_second_portefeuille_est_refuse_par_la_base(): void
     {
         $user = $this->makeUser('client');
-        $this->fund($user, 7000);
-        $this->actingAs($user, 'sanctum')->getJson('/api/v1/wallets')->assertOk(); // crée EUR et USD
 
-        $this->assertEqualsWithDelta(7000, (float) $this->actingAs($user, 'sanctum')->getJson('/api/v1/wallet')->json('data.balance'), 0.01);
+        $this->expectException(\Illuminate\Database\UniqueConstraintViolationException::class);
+        Wallet::create(['user_id' => $user->id, 'currency' => 'EUR', 'balance' => 0]);
     }
 
-    public function test_conversion_xaf_vers_euro_au_taux_de_l_administrateur(): void
-    {
-        $this->taux('EUR', 655);
-        $user = $this->makeUser('client');
-        $this->fund($user, 65500);
-
-        $r = $this->actingAs($user, 'sanctum')->postJson('/api/v1/wallets/convert', ['amount' => 65500, 'from_currency' => 'XAF', 'to_currency' => 'EUR'])->assertOk();
-
-        $this->assertEqualsWithDelta(100, $r->json('data.credited'), 0.01);
-        $this->assertEqualsWithDelta(0, $this->balanceOf($user), 0.01);
-        $this->assertEqualsWithDelta(100, (float) Wallet::where('user_id', $user->id)->where('currency', 'EUR')->value('balance'), 0.01);
-    }
-
-    public function test_conversion_entre_deux_devises_etrangeres_passe_par_le_xaf(): void
-    {
-        $this->taux('EUR', 650);
-        $this->taux('USD', 600);
-        $user = $this->makeUser('client');
-        $this->actingAs($user, 'sanctum')->getJson('/api/v1/wallets');
-        Wallet::where('user_id', $user->id)->where('currency', 'EUR')->update(['balance' => 60]);
-
-        $r = $this->actingAs($user, 'sanctum')->postJson('/api/v1/wallets/convert', ['amount' => 60, 'from_currency' => 'EUR', 'to_currency' => 'USD'])->assertOk();
-
-        $this->assertEqualsWithDelta(65, $r->json('data.credited'), 0.01); // 60 × 650 / 600
-    }
-
-    public function test_conversion_refusee_sans_solde_sans_taux_ou_vers_la_meme_devise(): void
+    public function test_les_routes_de_portefeuilles_par_devise_n_existent_plus(): void
     {
         $user = $this->makeUser('client');
         $this->fund($user, 1000);
-        $convertir = fn (array $d) => $this->actingAs($user, 'sanctum')->postJson('/api/v1/wallets/convert', $d);
 
-        $convertir(['amount' => 500, 'from_currency' => 'XAF', 'to_currency' => 'EUR'])->assertStatus(422);       // aucun taux
-        $this->taux('EUR', 655);
-        $convertir(['amount' => 50000, 'from_currency' => 'XAF', 'to_currency' => 'EUR'])->assertStatus(422);     // solde insuffisant
-        $convertir(['amount' => 500, 'from_currency' => 'XAF', 'to_currency' => 'XAF'])->assertStatus(422);       // même devise
-        $convertir(['amount' => 500, 'from_currency' => 'XAF', 'to_currency' => 'GBP'])->assertStatus(422);       // devise inconnue
+        $this->actingAs($user, 'sanctum')->getJson('/api/v1/wallets')->assertNotFound();
+        $this->actingAs($user, 'sanctum')->postJson('/api/v1/wallets/convert', ['amount' => 500, 'from_currency' => 'XAF', 'to_currency' => 'EUR'])->assertNotFound();
         $this->assertEqualsWithDelta(1000, $this->balanceOf($user), 0.01);
+    }
+
+    public function test_l_achat_de_credit_en_euros_est_converti_en_xaf_au_taux_de_l_administrateur(): void
+    {
+        $this->taux('EUR', 655.957);
+        $user = $this->makeUser('client');
+        $this->fund($user, 0);
+        Http::fake(['*' => Http::response(['transaction' => ['reference' => 'np-credit', 'status' => 'pending']])]);
+
+        $this->actingAs($user, 'sanctum')->postJson('/api/v1/credits/purchase', [
+            'amount' => 100, 'from_currency' => 'EUR', 'method' => 'card',
+        ])->assertSuccessful();
+
+        $paiement = \App\Modules\Finance\Models\Payment::where('payer_id', $user->id)->sole();
+        $this->assertSame('XAF', $paiement->currency);
+        $this->assertEqualsWithDelta(65596, (float) $paiement->amount, 0.01); // 100 × 655,957, arrondi au franc
+        $this->assertSame('pending', $paiement->status);                       // crédité seulement à la confirmation
+        $this->assertSame(1, Wallet::where('user_id', $user->id)->count());
     }
 
     public function test_un_administrateur_n_a_pas_de_portefeuille(): void
     {
-        $this->actingAs($this->makeUser('admin'), 'sanctum')->getJson('/api/v1/wallets')->assertForbidden();
+        $this->actingAs($this->makeUser('admin'), 'sanctum')->getJson('/api/v1/wallet')->assertForbidden();
     }
 
     // ── Modification de l'e-mail ───────────────────────────

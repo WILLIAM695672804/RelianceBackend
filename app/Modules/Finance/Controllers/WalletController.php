@@ -36,43 +36,6 @@ class WalletController extends Controller
     }
 
     /**
-     * GET /v1/wallets — Portefeuilles de l'utilisateur dans chaque devise (XAF, EUR, USD).
-     */
-    public function index(Request $request)
-    {
-        $user = $request->user();
-        if ($user->hasRole('admin')) {
-            return response()->json(['message' => 'Les administrateurs n\'ont pas de wallet'], 403);
-        }
-        foreach (\App\Modules\Finance\Services\CurrencyConverter::CURRENCIES as $currency) {
-            Wallet::firstOrCreate(['user_id' => $user->id, 'currency' => $currency], ['id' => (string) Str::uuid(), 'balance' => 0]);
-        }
-
-        return WalletResource::collection(Wallet::where('user_id', $user->id)->orderBy('currency')->get());
-    }
-
-    /**
-     * POST /v1/wallets/convert — Convertit un montant entre deux portefeuilles de l'utilisateur.
-     */
-    public function convert(Request $request, \App\Modules\Finance\Services\CurrencyConverter $converter)
-    {
-        $data = $request->validate([
-            'amount' => 'required|numeric|min:0.01',
-            'from_currency' => 'required|in:XAF,EUR,USD',
-            'to_currency' => 'required|in:XAF,EUR,USD|different:from_currency',
-        ]);
-        if ($request->user()->hasRole('admin')) {
-            return response()->json(['message' => 'Les administrateurs n\'ont pas de wallet'], 403);
-        }
-
-        try {
-            return response()->json(['message' => 'Conversion effectuée', 'data' => $converter->convert($request->user()->id, (float) $data['amount'], $data['from_currency'], $data['to_currency'])]);
-        } catch (\DomainException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
-        }
-    }
-
-    /**
      * POST /v1/wallet/recharge — Initiate a wallet recharge (creates pending payment).
      */
     public function recharge(RechargeWalletRequest $request)

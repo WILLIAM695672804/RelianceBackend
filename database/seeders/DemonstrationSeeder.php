@@ -374,9 +374,8 @@ class DemonstrationSeeder extends Seeder
      */
     private function ouvrirUnPortefeuille(User $utilisateur): Wallet
     {
-        // La devise fait partie de la clé : dès que l'écran des portefeuilles a été
-        // ouvert, un compte en possède trois (XAF, EUR, USD), et une recherche sur le
-        // seul utilisateur renverrait l'un d'eux sans ordre garanti par PostgreSQL.
+        // Un seul portefeuille par utilisateur, en XAF (unicité de user_id en base) ;
+        // la devise reste explicite, comme dans les contrôleurs.
         return Wallet::firstOrCreate(
             ['user_id' => $utilisateur->id, 'currency' => 'XAF'],
             ['balance' => 0]

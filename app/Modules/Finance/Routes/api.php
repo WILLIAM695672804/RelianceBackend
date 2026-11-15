@@ -23,8 +23,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('diagnostics/{id}/pay', [\App\Modules\Finance\Controllers\DiagnosticController::class, 'pay'])->middleware('2fa.clients');
 
     Route::get('wallet', [WalletController::class, 'show']);
-    Route::get('wallets', [WalletController::class, 'index']);
-    Route::post('wallets/convert', [WalletController::class, 'convert'])->middleware('2fa.clients');
     Route::post('wallet/recharge', [WalletController::class, 'recharge'])->middleware('2fa.clients');
     Route::get('wallet/transactions', [WalletController::class, 'transactions']);
     Route::post('wallet/withdraw', [WalletController::class, 'withdraw'])->middleware('2fa.clients');
