@@ -43,7 +43,9 @@ return [
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
             'timeout' => null,
-            'local_domain' => env('MAIL_EHLO_DOMAIN'),
+            // Nom annoncé au serveur SMTP (EHLO) : sans lui, c'est le nom du conteneur (« 3f2a9c… »),
+            // qui figure dans les en-têtes Received et pèse dans le score anti-spam.
+            'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', ''), PHP_URL_HOST) ?: null),
         ],
 
         'ses' => [
@@ -110,6 +112,13 @@ return [
     'from' => [
         'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
         'name' => env('MAIL_FROM_NAME', 'Example'),
+    ],
+
+    // Adresse de réponse facultative : une boîte réellement relevée (contact@…) vaut mieux qu'une
+    // réponse adressée à « no-reply », que les messageries jugent moins favorablement.
+    'reply_to' => [
+        'address' => env('MAIL_REPLY_TO_ADDRESS') ?: null, // vide = pas d'adresse de réponse
+        'name' => env('MAIL_REPLY_TO_NAME', env('MAIL_FROM_NAME', 'Reliance')),
     ],
 
     /*

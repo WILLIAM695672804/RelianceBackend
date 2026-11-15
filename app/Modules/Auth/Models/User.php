@@ -168,4 +168,10 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         $this->notify(new \App\Notifications\VerifyEmailNotification());
     }
+
+    /** Courriel de réinitialisation en français (le modèle par défaut de Laravel est en anglais). */
+    public function sendPasswordResetNotification($token)
+    {
+        $this->notify(new \App\Notifications\ResetPasswordNotification($token));
+    }
 }

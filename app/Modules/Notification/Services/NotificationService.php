@@ -6,7 +6,6 @@ use App\Modules\Notification\Models\Notification;
 use App\Modules\Notification\Models\PushToken;
 use App\Modules\Notification\Models\NotificationSetting;
 use App\Modules\Auth\Models\User;
-use Illuminate\Support\Facades\Mail;
 
 class NotificationService
 {
@@ -33,7 +32,7 @@ class NotificationService
         }
 
         if (in_array('email', $channels) && ($settings['email'] ?? true)) {
-            $this->sendEmail($userId, $title, $body);
+            $this->sendEmail($userId, $title, $body, $payload);
         }
 
         if (in_array('sms', $channels) && ($settings['sms'] ?? true)) {
@@ -84,14 +83,14 @@ class NotificationService
     /**
      * Send email notification.
      */
-    protected function sendEmail(string $userId, string $title, string $body): void
+    protected function sendEmail(string $userId, string $title, string $body, array $payload = []): void
     {
         $user = User::find($userId);
         if ($user && $user->email) {
             try {
-                Mail::raw($body, function ($message) use ($user, $title) {
-                    $message->to($user->email)->subject($title);
-                });
+                // Courriel mis en forme (formule d'appel, action, raison de l'envoi) au lieu d'une
+                // phrase en texte brut, que les messageries classaient en indésirables.
+                $user->notify(new \App\Notifications\NotificationParCourriel($title, $body, $payload));
             } catch (\Exception $e) {
                 \Log::warning("Notification email failed for user {$userId}: " . $e->getMessage());
             }

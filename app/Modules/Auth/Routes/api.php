@@ -154,6 +154,12 @@ Route::prefix('auth')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::get('/email/verify/{id}/{hash}', function (\Illuminate\Http\Request $request, $id, $hash) {
+        // Signature relative (liens émis depuis le 15/11 : indépendante de l'hôte) ou absolue
+        // (liens antérieurs, encore valables jusqu'à leur expiration).
+        if (!$request->hasValidSignature(false) && !$request->hasValidSignature()) {
+            return response()->json(['message' => 'Lien de vérification expiré ou invalide.'], 403);
+        }
+
         $user = \App\Modules\Auth\Models\User::findOrFail($id);
 
         if (!hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
@@ -171,7 +177,7 @@ Route::prefix('auth')->group(function () {
         return response()->json([
             'message' => 'Email vérifié avec succès'
         ]);
-    })->name('verification.verify')->middleware('signed');
+    })->name('verification.verify');
 
     // Pièces KYC : servies depuis le disque privé sur URL temporaire signée (balise <img> sans en-tête Authorization).
     Route::get('/kyc/documents/{id}/fichier', [\App\Modules\Kyc\Controllers\KycController::class, 'file'])

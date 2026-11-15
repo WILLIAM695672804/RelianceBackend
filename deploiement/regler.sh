@@ -235,6 +235,8 @@ APP_KEY=$(engendrer APP_KEY 'printf "base64:%s" "$(openssl rand -base64 32)"')
     echo "MAIL_ENCRYPTION=$MAIL_ENCRYPTION"
     echo "MAIL_FROM_ADDRESS=$MAIL_FROM_ADDRESS"
     echo "MAIL_FROM_NAME=Reliance"
+    # Facultative : boîte réellement relevée pour les réponses (conservée telle quelle).
+    echo "MAIL_REPLY_TO_ADDRESS=$(lire_ancien MAIL_REPLY_TO_ADDRESS)"
     echo
     echo "NOTCHPAY_BASE_URL=https://api.notchpay.co"
     echo "NOTCHPAY_PUBLIC_KEY=$NOTCHPAY_PUBLIC_KEY"
