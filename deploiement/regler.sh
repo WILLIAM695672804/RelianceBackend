@@ -40,7 +40,8 @@ ANCIEN=""
 
 lire_ancien() {        # lire_ancien <clé>
     [ -n "$ANCIEN" ] || return 0
-    sed -n "s/^$1=//p" "$ANCIEN" | head -1 | sed -e 's/^"//' -e 's/"$//'
+    # Guillemets simples (écriture actuelle) ou doubles (fichiers antérieurs au 15/11) retirés.
+    sed -n "s/^$1=//p" "$ANCIEN" | head -1 | sed -e "s/^[\"']//" -e "s/[\"']\$//"
 }
 
 titre "Réglages de Reliance en production"
@@ -73,7 +74,7 @@ secret_ou_conserver() {   # secret_ou_conserver <invite> <clé du .env>
         read -rs valeur </dev/tty; echo >&2
         [ -z "$valeur" ] && { printf '%s' "$actuel"; return; }
         case "$valeur" in
-            *[\"\\]*) rouge "  Ni guillemet double ni contre-oblique. Valeur inchangée."
+            *[\'\\]*) rouge "  Ni apostrophe ni contre-oblique. Valeur inchangée."
                      printf '%s' "$actuel"; return ;;
         esac
         printf '%s' "$valeur"; return
@@ -84,9 +85,11 @@ secret_ou_conserver() {   # secret_ou_conserver <invite> <clé du .env>
 secret() {             # secret <invite>  — saisie masquée, obligatoire
     local valeur
     while :; do
-        # Un guillemet double ou une contre-oblique casserait le .env, qui est
-        # lu aussi bien par docker compose que par Laravel. Mieux vaut le dire
-        # ici que laisser un fichier illisible.
+        # Les secrets sont écrits entre apostrophes : entre guillemets doubles,
+        # docker compose remplace « $mot » par une variable — vide — et le
+        # conteneur recevait un mot de passe tronqué (SMTP refusé, 503 au renvoi
+        # du lien de vérification). Seules l'apostrophe et la contre-oblique
+        # restent interdites ; « $ », « # » et le guillemet double sont permis.
         :
         # Sur la sortie d'erreur : cette fonction est appelée depuis une
         # substitution de commande, qui capture la sortie standard. L'invite
@@ -97,7 +100,7 @@ secret() {             # secret <invite>  — saisie masquée, obligatoire
         read -rs valeur </dev/tty; echo >&2
         case "$valeur" in
             '')      rouge "  Obligatoire. Recommencez."; continue ;;
-            *[\"\\]*) rouge "  Ni guillemet double ni contre-oblique ici. Recommencez."; continue ;;
+            *[\'\\]*) rouge "  Ni apostrophe ni contre-oblique ici. Recommencez."; continue ;;
         esac
         printf '%s' "$valeur"; return
     done
@@ -228,15 +231,15 @@ APP_KEY=$(engendrer APP_KEY 'printf "base64:%s" "$(openssl rand -base64 32)"')
     echo "MAIL_HOST=$MAIL_HOST"
     echo "MAIL_PORT=$MAIL_PORT"
     echo "MAIL_USERNAME=$MAIL_USERNAME"
-    echo "MAIL_PASSWORD=\"$MAIL_PASSWORD\""
+    echo "MAIL_PASSWORD='$MAIL_PASSWORD'"
     echo "MAIL_ENCRYPTION=$MAIL_ENCRYPTION"
     echo "MAIL_FROM_ADDRESS=$MAIL_FROM_ADDRESS"
     echo "MAIL_FROM_NAME=Reliance"
     echo
     echo "NOTCHPAY_BASE_URL=https://api.notchpay.co"
     echo "NOTCHPAY_PUBLIC_KEY=$NOTCHPAY_PUBLIC_KEY"
-    echo "NOTCHPAY_PRIVATE_KEY=\"$NOTCHPAY_PRIVATE_KEY\""
-    echo "NOTCHPAY_HASH_KEY=\"$NOTCHPAY_HASH_KEY\""
+    echo "NOTCHPAY_PRIVATE_KEY='$NOTCHPAY_PRIVATE_KEY'"
+    echo "NOTCHPAY_HASH_KEY='$NOTCHPAY_HASH_KEY'"
     echo "PAIEMENT_SIMULE=$PREPRODUCTION"
     echo "PAIEMENT_SIMULE_DELAI_S=5"
     echo "PREPRODUCTION=$PREPRODUCTION"
@@ -249,7 +252,7 @@ APP_KEY=$(engendrer APP_KEY 'printf "base64:%s" "$(openssl rand -base64 32)"')
     echo "REQUIRE_2FA_CLIENTS=true"
     echo "SSE_MAX_SECONDS=300"
     echo "ADMIN_EMAIL=$ADMIN_EMAIL"
-    echo "ADMIN_PASSWORD=\"$ADMIN_PASSWORD\""
+    echo "ADMIN_PASSWORD='$ADMIN_PASSWORD'"
 } > .env
 chmod 600 .env
 
