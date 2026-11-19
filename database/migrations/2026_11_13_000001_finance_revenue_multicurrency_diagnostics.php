@@ -9,11 +9,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Journal des revenus de la plateforme (commissions, abonnements) : un mouvement = une ligne.
+        // Journal des revenus de la plateforme (commissions) : un mouvement = une ligne.
         Schema::create('platform_revenues', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->uuid('payment_id')->nullable();
-            $table->string('source', 50); // job_commission, diagnostic_commission, subscription…
+            $table->string('source', 50); // job_commission, diagnostic_commission…
             $table->decimal('amount', 14, 2);
             $table->string('currency', 3)->default('XAF');
             $table->timestampTz('created_at')->useCurrent();

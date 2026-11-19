@@ -250,7 +250,6 @@ APP_KEY=$(engendrer APP_KEY 'printf "base64:%s" "$(openssl rand -base64 32)"')
     echo "SMS_SENDER=Reliance"
     echo "EXPO_PUSH_URL=https://exp.host/--/api/v2/push/send"
     echo
-    echo "REQUIRE_SUBSCRIPTION=false"
     echo "REQUIRE_2FA_CLIENTS=true"
     echo "SSE_MAX_SECONDS=300"
     echo "ADMIN_EMAIL=$ADMIN_EMAIL"

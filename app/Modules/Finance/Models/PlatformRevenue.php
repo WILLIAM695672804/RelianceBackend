@@ -5,7 +5,7 @@ namespace App\Modules\Finance\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
-/** Ligne du journal des revenus de la plateforme (commission, abonnement…). */
+/** Ligne du journal des revenus de la plateforme (commissions de mission et de diagnostic). */
 class PlatformRevenue extends Model
 {
     protected $table = 'platform_revenues';

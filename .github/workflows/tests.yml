@@ -45,7 +45,7 @@ jobs:
 
   mutation-finance:
     # Les tests de mutation vérifient que les assertions détectent réellement une régression
-    # sur le module Finance (paiement, séquestre, abonnement). Non bloquant tant que le score
+    # sur le module Finance (paiement, séquestre). Non bloquant tant que le score
     # de référence n'est pas établi.
     runs-on: ubuntu-latest
     continue-on-error: true

@@ -384,17 +384,6 @@
 | `POST` | `/holds/{id}/capture` | Capturer les fonds (libérer au technicien) |
 | `POST` | `/holds/{id}/release` | Relâcher les fonds (rembourser le client) |
 
-### Abonnements
-
-| Méthode | Endpoint | Rôle |
-|---------|----------|------|
-| `GET` | `/subscriptions/plans` | Voir les plans d'abonnement |
-| `GET` | `/subscriptions/mine` | Mon abonnement actuel |
-| `POST` | `/subscriptions/subscribe` | S'abonner à un plan |
-| `POST` | `/subscriptions/cancel` | Annuler l'abonnement |
-| `POST` | `/subscriptions/pause` | Mettre en pause |
-| `POST` | `/subscriptions/resume` | Reprendre l'abonnement |
-
 ### Crédits
 
 | Méthode | Endpoint | Rôle |
@@ -406,11 +395,6 @@
 
 | Méthode | Endpoint | Rôle |
 |---------|----------|------|
-| `GET` | `/admin/subscriptions` | Tous les abonnements |
-| `GET` | `/admin/subscriptions/stats` | Statistiques abonnements |
-| `PUT` | `/admin/subscriptions/{id}` | Modifier un abonnement |
-| `POST` | `/admin/subscriptions/plans` | Créer un plan |
-| `PUT` | `/admin/subscriptions/plans/{id}` | Modifier un plan |
 | `GET` | `/admin/fees` | Frais de plateforme |
 | `POST` | `/admin/fees` | Créer un frais |
 | `PUT` | `/admin/fees/{id}` | Modifier un frais |

@@ -3,7 +3,6 @@
 namespace App\Modules\Finance\Services;
 
 use App\Modules\Finance\Models\Payment;
-use App\Modules\Finance\Models\PlatformRevenue;
 use App\Modules\Finance\Models\Transaction;
 use App\Modules\Finance\Models\Wallet;
 use Illuminate\Support\Facades\DB;
@@ -60,48 +59,6 @@ class WalletService
             }
 
             return $payment->fresh();
-        });
-    }
-
-    /**
-     * Débite le portefeuille au profit de la plateforme (abonnement, achat de crédits…).
-     *
-     * @throws \DomainException si le solde disponible est insuffisant
-     */
-    public function chargePlatform(string $userId, float $amount, string $type, array $metadata = []): Payment
-    {
-        return DB::transaction(function () use ($userId, $amount, $type, $metadata) {
-            $wallet = Wallet::xaf()->where('user_id', $userId)->lockForUpdate()->firstOrFail();
-
-            if ($wallet->availableBalance() < $amount) {
-                throw new \DomainException('Solde insuffisant : rechargez votre portefeuille.');
-            }
-
-            $payment = Payment::create([
-                'payer_id' => $userId,
-                'payee_id' => null,
-                'method' => 'wallet',
-                'amount' => $amount,
-                'currency' => $wallet->currency,
-                'status' => 'settled',
-                'settled_at' => now(),
-                'metadata' => array_merge(['type' => $type], $metadata),
-            ]);
-
-            PlatformRevenue::create(['payment_id' => $payment->id, 'source' => $type, 'amount' => $amount, 'currency' => $wallet->currency]);
-
-            $wallet->decrement('balance', $amount);
-            Transaction::create([
-                'id' => (string) Str::uuid(),
-                'wallet_id' => $wallet->id,
-                'amount' => -$amount,
-                'balance_after' => $wallet->fresh()->balance,
-                'type' => 'debit',
-                'related_payment' => $payment->id,
-                'meta' => ['source' => $type],
-            ]);
-
-            return $payment;
         });
     }
 }

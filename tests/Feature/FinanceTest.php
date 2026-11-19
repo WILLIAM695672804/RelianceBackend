@@ -56,36 +56,6 @@ class FinanceTest extends TestCase
         $this->assertNull(app(WalletService::class)->settleRecharge((string) \Illuminate\Support\Str::uuid()));
     }
 
-    public function test_charge_platform_debite_et_trace_la_transaction(): void
-    {
-        $user = $this->makeUser('technicien');
-        $this->fund($user, 10000);
-
-        $payment = app(WalletService::class)->chargePlatform($user->id, 4000, 'subscription', ['plan' => 'pro']);
-
-        $this->assertSame('settled', $payment->status);
-        $this->assertEqualsWithDelta(6000, $this->balanceOf($user), 0.01);
-        $this->assertSame(-4000.0, (float) Transaction::where('related_payment', $payment->id)->value('amount'));
-    }
-
-    public function test_charge_platform_refuse_un_solde_insuffisant_sans_effet_de_bord(): void
-    {
-        $user = $this->makeUser('technicien');
-        $this->fund($user, 1000);
-
-        try {
-            app(WalletService::class)->chargePlatform($user->id, 4000, 'subscription');
-            $this->fail('DomainException attendue.');
-        } catch (\DomainException $e) {
-            $this->assertStringContainsString('Solde insuffisant', $e->getMessage());
-        }
-
-        $this->assertEqualsWithDelta(1000, $this->balanceOf($user), 0.01);
-        $this->assertSame(0, Payment::count());
-    }
-
-    // ── EscrowService ──────────────────────────────────────
-
     public function test_hold_reduit_le_solde_disponible_sans_toucher_au_solde(): void
     {
         $user = $this->makeUser('client');
