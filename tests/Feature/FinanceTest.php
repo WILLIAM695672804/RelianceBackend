@@ -6,7 +6,6 @@ use App\Modules\Auth\Models\User;
 use App\Modules\Finance\Models\Hold;
 use App\Modules\Finance\Models\Payment;
 use App\Modules\Finance\Models\PlatformFee;
-use App\Modules\Finance\Models\SubscriptionPlan;
 use App\Modules\Finance\Models\Transaction;
 use App\Modules\Finance\Services\EscrowService;
 use App\Modules\Finance\Services\WalletService;
@@ -287,51 +286,6 @@ class FinanceTest extends TestCase
         $this->assertNotEmpty($response->json('instructions'));
         $this->assertSame('pending', Payment::findOrFail($response->json('payment_id'))->status);
         $this->assertEqualsWithDelta(0, $this->balanceOf($user), 0.01);
-    }
-
-    // ── Abonnement ─────────────────────────────────────────
-
-    private function plan(): SubscriptionPlan
-    {
-        return SubscriptionPlan::create([
-            'name' => 'Pro', 'slug' => 'pro', 'price_monthly' => 5000, 'price_yearly' => 50000,
-            'currency' => 'XAF', 'features' => ['Référencement'],
-        ]);
-    }
-
-    public function test_abonnement_sans_fonds_renvoie_402_et_ne_cree_rien(): void
-    {
-        $tech = $this->makeUser('technicien');
-        $this->fund($tech, 0);
-        $plan = $this->plan();
-
-        $this->actingAs($tech, 'sanctum')
-            ->postJson('/api/v1/subscriptions/subscribe', ['plan_id' => $plan->id, 'billing_cycle' => 'monthly'])
-            ->assertStatus(402);
-
-        $this->assertSame(0, \App\Modules\Finance\Models\Subscription::count());
-    }
-
-    public function test_abonnement_avec_fonds_debite_et_refuse_le_doublon(): void
-    {
-        $tech = $this->makeUser('technicien');
-        $this->fund($tech, 100000);
-        $plan = $this->plan();
-        $payload = ['plan_id' => $plan->id, 'billing_cycle' => 'monthly'];
-
-        $this->actingAs($tech, 'sanctum')->postJson('/api/v1/subscriptions/subscribe', $payload)->assertSuccessful();
-        $this->assertEqualsWithDelta(95000, $this->balanceOf($tech), 0.01);
-
-        $this->actingAs($tech, 'sanctum')->postJson('/api/v1/subscriptions/subscribe', $payload)->assertStatus(422);
-        $this->assertEqualsWithDelta(95000, $this->balanceOf($tech), 0.01);
-    }
-
-    public function test_creation_de_plan_reservee_a_l_administrateur(): void
-    {
-        $payload = ['name' => 'Pro', 'slug' => 'pro-x', 'price_monthly' => 1, 'price_yearly' => 2];
-
-        $this->actingAs($this->makeUser('technicien'), 'sanctum')->postJson('/api/v1/admin/subscriptions/plans', $payload)->assertForbidden();
-        $this->actingAs($this->makeUser('admin'), 'sanctum')->postJson('/api/v1/admin/subscriptions/plans', $payload)->assertStatus(201);
     }
 
     // ── Frais de plateforme ────────────────────────────────

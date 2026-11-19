@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Broadcasting\ResilientPusherBroadcaster;
-use App\Modules\Finance\Models\Subscription;
 use App\Modules\Matching\Models\Proposal;
 use App\Modules\Matching\Services\ProposalExpirationService;
 use App\Modules\Notification\Models\PushToken;
@@ -72,32 +71,8 @@ class MatchingAndNotificationsTest extends TestCase
         $this->assertNotContains($inactif->id, $ids);
     }
 
-    public function test_filtre_d_abonnement_actif_quand_il_est_exige(): void
+    public function test_aucun_abonnement_n_est_exige_pour_etre_retenu(): void
     {
-        config(['reliance.require_subscription' => true]);
-        $client = $this->makeUser('client');
-        $abonne = $this->makeTechnician();
-        $sans = $this->makeTechnician();
-        $expire = $this->makeTechnician();
-        Subscription::create([
-            'subscriber_id' => $abonne->id, 'plan_name' => 'pro', 'status' => 'active',
-            'start_date' => now(), 'end_date' => now()->addMonth(), 'recurring' => true,
-        ]);
-        Subscription::create([
-            'subscriber_id' => $expire->id, 'plan_name' => 'pro', 'status' => 'active',
-            'start_date' => now()->subMonths(2), 'end_date' => now()->subMonth(), 'recurring' => true,
-        ]);
-
-        $ids = $this->matchedIds($client, $this->makeRequestFor($client));
-
-        $this->assertContains($abonne->id, $ids);
-        $this->assertNotContains($sans->id, $ids);
-        $this->assertNotContains($expire->id, $ids);
-    }
-
-    public function test_sans_exigence_d_abonnement_tous_les_techniciens_eligibles_sont_retenus(): void
-    {
-        config(['reliance.require_subscription' => false]);
         $client = $this->makeUser('client');
         $sans = $this->makeTechnician();
 

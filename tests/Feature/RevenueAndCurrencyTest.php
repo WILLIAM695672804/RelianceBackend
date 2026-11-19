@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Modules\Finance\Models\ExchangeRate;
 use App\Modules\Finance\Models\PlatformFee;
 use App\Modules\Finance\Models\PlatformRevenue;
-use App\Modules\Finance\Models\SubscriptionPlan;
 use App\Modules\Finance\Models\Wallet;
 use App\Modules\Finance\Services\EscrowService;
 use Illuminate\Auth\Notifications\VerifyEmail;
@@ -60,21 +59,10 @@ class RevenueAndCurrencyTest extends TestCase
         $this->assertSame(0, PlatformRevenue::count());
     }
 
-    public function test_un_abonnement_est_un_revenu_integral_de_la_plateforme(): void
-    {
-        $tech = $this->makeUser('technicien');
-        $this->fund($tech, 10000);
-        $plan = SubscriptionPlan::create(['name' => 'Pro', 'slug' => 'pro', 'price_monthly' => 5000, 'price_yearly' => 50000, 'currency' => 'XAF', 'features' => []]);
-
-        $this->actingAs($tech, 'sanctum')->postJson('/api/v1/subscriptions/subscribe', ['plan_id' => $plan->id, 'billing_cycle' => 'monthly'])->assertSuccessful();
-
-        $this->assertEqualsWithDelta(5000, (float) PlatformRevenue::where('source', 'subscription')->sum('amount'), 0.01);
-    }
-
     public function test_le_tableau_des_revenus_est_reserve_a_l_administrateur(): void
     {
         PlatformRevenue::create(['source' => 'job_commission', 'amount' => 1500, 'currency' => 'XAF']);
-        PlatformRevenue::create(['source' => 'subscription', 'amount' => 5000, 'currency' => 'XAF']);
+        PlatformRevenue::create(['source' => 'diagnostic_commission', 'amount' => 5000, 'currency' => 'XAF']);
 
         $this->actingAs($this->makeUser('technicien'), 'sanctum')->getJson('/api/v1/admin/revenue')->assertForbidden();
         $data = $this->actingAs($this->makeUser('admin'), 'sanctum')->getJson('/api/v1/admin/revenue')->assertOk()->json('data');

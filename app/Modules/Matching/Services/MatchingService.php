@@ -150,17 +150,6 @@ class MatchingService
             $query->whereHas('skills', fn($q) => $q->where('skills.id', $skillId));
         }
 
-        // Référencement conditionné au paiement de l'abonnement (cahier des charges §4.1).
-        if (config('reliance.require_subscription')) {
-            $query->whereExists(function ($q) {
-                $q->select(DB::raw(1))
-                  ->from('subscriptions')
-                  ->whereColumn('subscriptions.subscriber_id', 'users.id')
-                  ->whereIn('subscriptions.status', ['active', 'trial'])
-                  ->where(fn ($d) => $d->whereNull('subscriptions.end_date')->orWhere('subscriptions.end_date', '>=', now()->toDateString()));
-            });
-        }
-
         return $query->get();
     }
 

@@ -5,7 +5,6 @@ use Illuminate\Support\Facades\Route;
 use App\Modules\Finance\Controllers\WalletController;
 use App\Modules\Finance\Controllers\PaymentController;
 use App\Modules\Finance\Controllers\HoldController;
-use App\Modules\Finance\Controllers\SubscriptionController;
 use App\Modules\Finance\Controllers\PlatformFeeController;
 use App\Modules\Finance\Controllers\CreditController;
 use App\Modules\Finance\Controllers\WebhookController;
@@ -38,27 +37,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('holds/{id}/capture', [HoldController::class, 'capture']);
     Route::post('holds/{id}/release', [HoldController::class, 'release']);
 
-    // ── Subscriptions ───────────────────────────────────────
-    Route::get('subscriptions/plans', [SubscriptionController::class, 'plans']);
-    Route::get('subscriptions/mine', [SubscriptionController::class, 'mine']);
-    Route::post('subscriptions/subscribe', [SubscriptionController::class, 'subscribe']);
-    Route::post('subscriptions/cancel', [SubscriptionController::class, 'cancel']);
-    Route::post('subscriptions/pause', [SubscriptionController::class, 'pause']);
-    Route::post('subscriptions/resume', [SubscriptionController::class, 'resume']);
-
     // ── Credits & Exchange Rates ────────────────────────────
     Route::get('credits/rates', [CreditController::class, 'rates']);
     Route::post('credits/purchase', [CreditController::class, 'purchase'])->middleware('2fa.clients');
 
     // ── Admin Finance Routes ────────────────────────────────
     Route::middleware('role:admin')->group(function () {
-        // Subscriptions Admin
-        Route::get('admin/subscriptions', [SubscriptionController::class, 'adminIndex']);
-        Route::get('admin/subscriptions/stats', [SubscriptionController::class, 'adminStats']);
-        Route::put('admin/subscriptions/{id}', [SubscriptionController::class, 'adminUpdate']);
-        Route::post('admin/subscriptions/plans', [SubscriptionController::class, 'createPlan']);
-        Route::put('admin/subscriptions/plans/{id}', [SubscriptionController::class, 'updatePlan']);
-
         // Platform Fees Admin
         Route::get('admin/revenue', [\App\Modules\Finance\Controllers\AdminRevenueController::class, 'index']);
         Route::get('admin/fees', [PlatformFeeController::class, 'index']);
